@@ -23,4 +23,15 @@ Animated drawings show in the desktop app's Code tab; the terminal draws a block
 
 ```
 claude plugin marketplace update dimamingtrick-mods
+claude plugin update mascot-crew@dimamingtrick-mods
 ```
+
+Then start a new session.
+
+## What it runs
+
+Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays a bundled sound, and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests.
+
+## License
+
+MIT
