@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, Timer } from 'claude-code'
+import type { AgentInfo, Elements, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Ask, Lash, Mini, Scene, Whip } from '../types'
+import type { Lash, Mini, Popup, Scene, Whip } from '../types'
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
@@ -16,6 +16,7 @@ import {
   jobOf,
   jumpingDown,
   stageWidth,
+  fxWidth,
   finishing,
   miniAtDesk,
   ENTER_MS,
@@ -27,8 +28,6 @@ import {
   rising,
   shiftTime,
   speechBubble,
-  askTimer,
-  ASK_TIMER_SIZE,
   saluting,
   termMain,
   termMini,
@@ -54,21 +53,23 @@ const tick = atom({ plugin: 'mascot-crew', key: 'tick' } as const, 0)
 const whip = atom({ plugin: 'mascot-crew', key: 'whip' } as const, 'none' as Whip)
 const NO_LASH: Lash = { n: 0, kind: 'self', row: '', at: 0, isStreak: false }
 const lash = atom({ plugin: 'mascot-crew', key: 'lash' } as const, NO_LASH)
-const NO_ASK: Ask = { at: 0, isOn: false }
-const ask = atom({ plugin: 'mascot-crew', key: 'ask' } as const, NO_ASK)
+// The right-click menu or the details card open over one mini, if any.
+const popup = atom({ plugin: 'mascot-crew', key: 'popup' } as const, null as Popup)
 
 const SALUTE_MS = 4000
-const ASK_EVERY_MS = 10_000
 const FRAME_MS = 300
 const ORANGE = '#D97757'
 const MAX_MINIS = 6
 // Rows of cells that cover the main mascot's height. The desktop sizes a
 // Client by what it draws, so it draws this many rows.
 const CLICK_ROWS = 4
-const HOW_LONG_MINIS =
-  'How much longer? Briefly: what stage are the subagents at, and roughly how long until the results?'
-const HOW_LONG_SELF =
-  'How much longer? Briefly: what are you working on now, and roughly how long until you are done?'
+// How often the stage is checked against the engine's own record of its
+// agents, and how long one asked-about mini is left alone after.
+const SWEEP_MS = 2000
+const ASK_EVERY_MS = 10_000
+const CREW_PANE = 'crew'
+const howLong = (given: string) =>
+  `How much longer for the subagent "${given}"? Briefly: what stage is it at, and roughly how long until its result?`
 
 // A random profession none of `taken` has; any one once all are taken.
 const pickJob = (...taken: number[]) => {
@@ -82,9 +83,23 @@ let saluteTimer: Timer | undefined
 let exitTimer: Timer | undefined
 let whipTimer: Timer | undefined
 let frameTimer: Timer | undefined
-let lastAskedAt = -ASK_EVERY_MS
-let askTimerEnd: Timer | undefined
-let lastToastAt = 0
+let sweepTimer: Timer | undefined
+// When the main turn last started and the salute began: what the sweep
+// measures a stuck stage by.
+let turnStartedAt = 0
+let saluteAt = 0
+// Per mini: when it was last asked about, and since when its subagent has
+// sat with its turn over and no tool called (waiting on its own background
+// work, a server it started perhaps, that may never end).
+const askedAt = new Map<string, number>()
+const pausedAt = new Map<string, number>()
+// A subagent paused this long has done its work: its mini goes home and the
+// work it left running stays in the background tasks. One woken later
+// comes back.
+const IDLE_MS = 60_000
+// Every subagent spawned this session: one woken after its mini went home
+// climbs out again.
+const known = new Set<string>()
 // Frames tick only for a terminal: the desktop's drawings animate themselves.
 let isTerminalDrawn = false
 // Per subagent: the background work it started and has not yet been woken
@@ -110,7 +125,26 @@ const freeSlot = (minis: readonly Mini[]) => {
   return slot
 }
 
-const newMini = (s: Scene, id: string, at: number, task = ''): Mini => ({
+// A model id or alias as people name it: `claude-sonnet-5-5` → `Sonnet 5.5`,
+// `claude-haiku-4-5-20251001` → `Haiku 4.5`, `opus` → `Opus`; anything else
+// as it came.
+const modelName = (model: string) => {
+  const id = model.replace(/\[.*\]$/, '').toLowerCase()
+  const family = /(opus|sonnet|haiku|fable)/.exec(id)?.[1]
+  if (family === undefined) return model
+  const name = family[0]?.toUpperCase() + family.slice(1)
+  const after = new RegExp(`${family}-(\\d{1,2})(?:-(\\d{1,2}))?(?!\\d)`).exec(id)
+  const before = new RegExp(`(\\d{1,2})-(\\d{1,2})-${family}`).exec(id)
+  const version = after ?? before
+  if (version === null) return name
+
+  return `${name} ${version[1]}${version[2] === undefined ? '' : `.${version[2]}`}`
+}
+
+// What a mini's bubble says: its model, then what it is doing now.
+const bubbleText = (mini: Mini) => (mini.model === '' ? mini.task : `${mini.model}: ${mini.task}`)
+
+const newMini = (s: Scene, id: string, at: number, task = '', type = '', model = ''): Mini => ({
   id,
   // Unique on stage: not the main mascot's, nor another mini's.
   job: pickJob(s.job, ...s.minis.map(mini => mini.job)),
@@ -121,6 +155,11 @@ const newMini = (s: Scene, id: string, at: number, task = ''): Mini => ({
   fromX: 0,
   slot: freeSlot(s.minis),
   task,
+  given: task,
+  type,
+  model,
+  tools: 0,
+  recent: [],
 })
 
 // Leaves the stage: the main mascot hops down under the prompt first.
@@ -223,7 +262,7 @@ async function keepMiniBusy($: EngineInterface, id: string) {
   const at = await $.clock.now()
   const mini = (await read($, scene)).minis.find(one => one.id === id)
   if (mini !== undefined && !mini.isDone) return
-  if (mini === undefined && !waitsOf.has(id)) return
+  if (mini === undefined && !known.has(id)) return
   leaving.get(id)?.cancel()
   leaving.delete(id)
   await patchScene($, s => ({
@@ -246,38 +285,45 @@ async function saluteWhenDone($: EngineInterface) {
   const now = await read($, scene)
   if (now.isWorking || now.minis.length > 0 || now.job < 0) return
   await patchScene($, s => ({ ...s, isSaluting: true }))
+  saluteAt = await $.clock.now()
   saluteTimer?.cancel()
   saluteTimer = $.clock.after(SALUTE_MS, () => {
     void exitStage($)
   })
 }
 
-// A toast's text cannot change once shown, so the seconds left run on a
-// clock face drawn over the main mascot; the toast says so once per click,
-// not more often than it can be read.
-function toastWaiting($: EngineInterface, at: number) {
-  if (at - lastToastAt < 1200) return
-  lastToastAt = at
-  const left = Math.ceil((ASK_EVERY_MS - (at - lastAskedAt)) / 1000)
-  $.ui.toast(`Уже спросил — следующий вопрос через ${left} с`, { timeoutMs: 1500 })
+// A click on the main mascot cracks the whip: a lash and its crack, for
+// fun; nobody is asked anything.
+// One text cell of the band in the drawing's units, as the main mascot's
+// click region reports its size (that region is MAIN_WIDTH units across); a
+// cell is taken to be about twice as tall as it is wide.
+let cellUnits: number | undefined
+const CELL_ASPECT = 2.1
+type Click = { button: 'left' | 'right'; x: number; y: number; columns: number; rows: number }
+
+const clickOf = (data: unknown): Click | undefined =>
+  typeof data === 'object' && data !== null && 'button' in data ? (data as Click) : undefined
+
+// Where a click on a region hung from the row's bottom lands, in the
+// drawing's units from the stage's left and the row's top.
+const pointOf = (click: Click) => {
+  if (cellUnits === undefined || typeof click.x !== 'number') return undefined
+  const fromBottom = (click.rows - click.y - 0.5) * cellUnits * CELL_ASPECT
+
+  return {
+    x: Math.max(0, (click.x + 0.5) * cellUnits),
+    y: Math.min(HEIGHT - 2, Math.max(2, HEIGHT - fromBottom)),
+  }
 }
 
-// Puts the countdown on show from `at`, and takes it off when it runs out.
-async function startAskTimer($: EngineInterface, at: number) {
-  await update($, ask, () => ({ at, isOn: true }))
-  askTimerEnd?.cancel()
-  askTimerEnd = $.clock.after(ASK_EVERY_MS, () => {
-    void update($, ask, last => ({ ...last, isOn: false }))
-    $.ui.toast('Можно спрашивать снова', { timeoutMs: 1500 })
-  })
-}
-
-async function crackWhip($: EngineInterface) {
+// `isAtMain`: the click was on the main mascot itself, which takes the lash
+// from the person's hand; elsewhere it lashes the busy minis, if any.
+async function crackWhip($: EngineInterface, from?: { x: number; y: number }, isAtMain = false) {
   const now = await read($, scene)
   const hasBusyMinis = now.minis.some(mini => !mini.isDone)
   // One click is one lash, drawn over the row as it stands; the actors'
   // own drawings stay as they are.
-  const kind: Lash['kind'] = hasBusyMinis ? 'minis' : 'self'
+  const kind: Lash['kind'] = hasBusyMinis && !isAtMain ? 'minis' : 'self'
   const at = await $.clock.now()
   await update($, lash, last => ({
     n: last.n + 1,
@@ -285,6 +331,7 @@ async function crackWhip($: EngineInterface) {
     row: rowOf(now),
     at,
     isStreak: last.n > 0 && last.kind === kind && at - last.at < PAIN_MS,
+    ...(from === undefined ? {} : { from }),
   }))
   await update($, whip, () => kind)
   void $.audio.play({ asset: 'sounds/whip.wav' }).catch(() => undefined)
@@ -293,32 +340,57 @@ async function crackWhip($: EngineInterface) {
   whipTimer = $.clock.after(WHIP_MS, () => {
     void update($, whip, () => 'none' as Whip)
   })
-  // The minis are asked about while any works; else the main mascot about
-  // its own work, while it has some.
-  // Every lash says what came of it in a toast.
-  if (!hasBusyMinis && !now.isWorking) {
-    $.ui.toast('Спрашивать не о чем — все свободны')
+}
+
+const STATUS_WORDS: Record<string, string> = {
+  pending: 'запускается',
+  running: 'работает',
+  waiting: 'ждёт фоновую задачу',
+  idle: 'ждёт сообщения',
+  completed: 'готово',
+  failed: 'ошибка',
+  killed: 'остановлен',
+}
+
+const statusWord = (agent: AgentInfo | undefined) =>
+  agent === undefined ? 'нет в списке задач' : (STATUS_WORDS[agent.status] ?? agent.status)
+
+// `1:05`, `12 с`: how long a mini has been at it.
+const sinceText = (ms: number) => {
+  const seconds = Math.max(0, Math.round(ms / 1000))
+
+  return seconds < 60 ? `${seconds} с` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+async function agentsNow($: EngineInterface) {
+  try {
+    return await $.agent.list()
+  } catch {
+    return undefined
+  }
+}
+
+// Asks the main mascot in the chat how long one mini has left, at most once
+// in 10 seconds a mini. A running turn reads it at its next step; an idle
+// session gets it as the person's own message.
+async function askAboutMini($: EngineInterface, id: string) {
+  const now = await read($, scene)
+  const mini = now.minis.find(one => one.id === id)
+  if (mini === undefined || mini.isDone) return
+  const at = await $.clock.now()
+  const last = askedAt.get(id) ?? -ASK_EVERY_MS
+  if (at - last < ASK_EVERY_MS) {
+    $.ui.toast(`Уже спросил — про этого клодика можно снова через ${Math.ceil((ASK_EVERY_MS - (at - last)) / 1000)} с`)
 
     return
   }
-  // Lashes are free; the question reaches the chat once in 10 seconds.
-  if (at - lastAskedAt < ASK_EVERY_MS) {
-    toastWaiting($, at)
-
-    return
-  }
-  lastAskedAt = at
-  await startAskTimer($, at)
-  const text = hasBusyMinis ? HOW_LONG_MINIS : HOW_LONG_SELF
-  $.ui.toast(hasBusyMinis ? 'Спросил клодиков, долго ли ещё' : 'Спросил Клода, долго ли ещё')
-  // A prompt of a plugin's own waits for a running turn to end, too late to
-  // ask how long it has left: the running turn reads the question at its
-  // next step instead, and the chat shows it as a note. An idle session
-  // gets it as a message of the person's own.
+  askedAt.set(id, at)
+  const text = howLong(mini.given || mini.task)
+  $.ui.toast(`Спросил Клода, сколько осталось клодику «${mini.given || mini.task}»`)
   if (now.isWorking) {
     try {
       await $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] } })
-      await $.session.append({ message: { type: 'system', content: [{ type: 'text', text: `🪢 ${text}` }] } })
+      await $.session.append({ message: { type: 'system', content: [{ type: 'text', text: `⏱ ${text}` }] } })
 
       return
     } catch {
@@ -328,13 +400,177 @@ async function crackWhip($: EngineInterface) {
   try {
     await $.prompt.submit({ text, asUser: true })
   } catch {
-    // Nowhere to send it (no session to prompt): the lash alone it is.
+    $.ui.toast('Не получилось отправить вопрос в чат')
   }
+}
+
+// Stops a mini's subagent as the background tasks list does, and sends the
+// mini home.
+async function stopMini($: EngineInterface, id: string) {
+  const mini = (await read($, scene)).minis.find(one => one.id === id)
+  await update($, popup, () => null)
+  if (mini === undefined || mini.isDone) return
+  try {
+    const stopped = await $.tool.call({ tool: 'TaskStop', task_id: id })
+    if ('deny' in stopped && stopped.deny !== undefined) {
+      $.ui.toast(`Не удалось остановить: ${stopped.deny}`)
+
+      return
+    }
+  } catch (error) {
+    $.ui.toast(`Не удалось остановить: ${error instanceof Error ? error.message : String(error)}`)
+
+    return
+  }
+  $.ui.toast(`Клодик «${mini.given || mini.task}» остановлен`)
+  waitsOf.delete(id)
+  await sendMiniHome($, id)
+}
+
+// The crew's pane: every mini's task and status, side by side with the chat.
+async function openCrew($: EngineInterface) {
+  try {
+    const opened = await $.ui.open({ id: CREW_PANE, title: 'Клодики' })
+    if (!opened.isPlaced) $.ui.toast('Панель клодиков не помещается: расширь окно')
+  } catch {
+    $.ui.toast('Не получилось открыть панель клодиков')
+  }
+}
+
+// The engine's own record of its agents is the truth: a mini whose subagent
+// is over (finished, failed, stopped, gone) goes home, and anyone a lost
+// timer left behind (a mini halfway home, the salute, the hop down) moves on.
+async function sweep($: EngineInterface) {
+  const now = await read($, scene)
+  if (!isOnStage(now)) {
+    sweepTimer?.cancel()
+    sweepTimer = undefined
+
+    return
+  }
+  const at = await $.clock.now()
+  const agents = await agentsNow($)
+  for (const mini of now.minis) {
+    if (mini.isDone) {
+      if (!leaving.has(mini.id) && at - mini.doneAt > leaveMs(mini.fromX) + 1000) {
+        waitsOf.delete(mini.id)
+        await patchScene($, s => ({ ...s, minis: s.minis.filter(one => one.id !== mini.id) }))
+        await saluteWhenDone($)
+      }
+      continue
+    }
+    if (at < mini.at) continue
+    // Paused past the limit: home, whatever the list says or if it is out.
+    if (at - (pausedAt.get(mini.id) ?? at) > IDLE_MS) {
+      pausedAt.delete(mini.id)
+      await sendMiniHome($, mini.id)
+      continue
+    }
+    if (agents === undefined) continue
+    const agent = agents.find(one => one.id === mini.id)
+    const waits = waitsOf.get(mini.id) ?? 0
+    // Its turn over, it may still wait on work of its own: counted as paused
+    // from the first sweep that sees it so.
+    if (agent !== undefined && agent.status !== 'running' && agent.status !== 'pending' && !pausedAt.has(mini.id)) {
+      pausedAt.set(mini.id, at)
+    }
+    const isOver =
+      agent === undefined
+        ? at - mini.at > 5000
+        : agent.status === 'failed' ||
+          agent.status === 'killed' ||
+          (agent.status === 'completed' && waits === 0)
+    if (isOver) {
+      pausedAt.delete(mini.id)
+      await sendMiniHome($, mini.id)
+    }
+  }
+  const after = await read($, scene)
+  if (after.isSaluting && at - saluteAt > SALUTE_MS + 1500) await exitStage($)
+  if (after.leaveAt > 0 && at - after.leaveAt > EXIT_MS + 1500) {
+    await patchScene($, s => ({ ...s, leaveAt: 0 }))
+  }
+}
+
+function startSweep($: EngineInterface) {
+  sweepTimer ??= $.clock.every(SWEEP_MS, () => {
+    void sweep($)
+  })
+}
+
+// The band says the main turn is over while the stage still has it at work
+// (its end was missed): it finishes as the end would have it.
+async function settleMainTurn($: EngineInterface) {
+  await patchScene($, s => ({ ...s, isWorking: false }))
+  if ((await read($, scene)).minis.length === 0) await saluteWhenDone($)
+}
+
+// A mini's right-click menu, or its details card: a small framed box in a
+// row of its own above the stage (the band shows nothing above its top),
+// over its mini; about this wide.
+const MENU_PX = 210
+const DETAILS_PX = 320
+// A see-through strip `width` pixels wide: what moves a popup over its mini.
+// The surface sizes a picture by its own markup, so the markup says so too.
+const spacer = (width: number) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 1" width="${width}" height="1"></svg>`
+
+function popupCard(
+  elements: Pick<Elements['desktop'], 'Box' | 'Button' | 'Text'>,
+  $: EngineInterface,
+  kind: 'menu' | 'details',
+  mini: Mini,
+  agent: AgentInfo | undefined,
+  at: number,
+) {
+  const { Box, Button, Text } = elements
+  const close = () => void update($, popup, () => null)
+  const job = jobOf(mini.job)
+  const title = `${job.emoji} ${mini.given || mini.task}`
+  if (kind === 'menu') {
+    return (
+      <Box key={`menu-${mini.id}`} flexDirection="column" borderStyle="round" borderColor={ORANGE} paddingX={1}>
+        <Text bold>{`${job.emoji}${mini.model === '' ? '' : ` ${mini.model}`}`}</Text>
+        <Button key={`menu-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
+        <Button
+          key={`menu-ask-${mini.id}`}
+          label="⏱ Сколько осталось?"
+          plain
+          onPress={() => {
+            close()
+            void askAboutMini($, mini.id)
+          }}
+        />
+        <Button
+          key={`menu-more-${mini.id}`}
+          label="ℹ️ Подробнее"
+          plain
+          onPress={() => void update($, popup, () => ({ id: mini.id, kind: 'details' as const }))}
+        />
+        <Button key={`menu-close-${mini.id}`} label="✕ Закрыть" plain onPress={close} />
+      </Box>
+    )
+  }
+
+  return (
+    <Box key={`details-${mini.id}`} flexDirection="column" borderStyle="round" borderColor={ORANGE} paddingX={1}>
+      <Text bold>{title}</Text>
+      <Text>{`Профессия: ${job.name}${mini.model === '' ? '' : ` · ${mini.model}`}${mini.type === '' ? '' : ` · агент ${mini.type}`}`}</Text>
+      <Text>{`Статус: ${statusWord(agent)} · ${sinceText(at - mini.at)} · инструментов: ${mini.tools}`}</Text>
+      <Text>{`Сейчас: ${mini.task}`}</Text>
+      {mini.recent.length > 1 && <Text dimColor>{`Недавно: ${mini.recent.slice(1).join(' ← ')}`}</Text>}
+      <Box flexDirection="row" gap={2}>
+        <Button key={`details-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
+        <Button key={`details-close-${mini.id}`} label="✕ Закрыть" plain onPress={close} />
+      </Box>
+    </Box>
+  )
 }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await patchScene($, () => IDLE)
+    await update($, popup, () => null)
 
     return next(e)
   })
@@ -343,6 +579,7 @@ export const register: Register = on => {
     saluteTimer?.cancel()
     exitTimer?.cancel()
     const at = await $.clock.now()
+    turnStartedAt = at
     // Off stage (or on its way down), it jumps back up from under the prompt,
     // and only then takes up a new profession: one task keeps one.
     await patchScene($, s => {
@@ -358,6 +595,7 @@ export const register: Register = on => {
       }
     })
     startFrames($)
+    startSweep($)
 
     return next(e)
   })
@@ -377,11 +615,16 @@ export const register: Register = on => {
         return {
           ...s,
           handoffAt,
-          minis: [...s.minis, newMini(s, id, startsAt, e.description ?? '')],
+          minis: [
+            ...s.minis,
+            newMini(s, id, startsAt, e.description ?? '', e.subagentType ?? '', modelName(spawned.model ?? '')),
+          ],
         }
       })
       waitsOf.set(id, 0)
+      known.add(id)
       startFrames($)
+      startSweep($)
     }
 
     return spawned
@@ -397,8 +640,10 @@ export const register: Register = on => {
       // A subagent that stopped to wait for its own background work is not
       // done: it runs again when that work reports, and only then goes home.
       const waits = waitsOf.get(id) ?? 0
-      if (waits > 0 && e.reason === 'answer') waitsOf.set(id, waits - 1)
-      else await sendMiniHome($, id)
+      if (waits > 0 && e.reason === 'answer') {
+        waitsOf.set(id, waits - 1)
+        pausedAt.set(id, await $.clock.now())
+      } else await sendMiniHome($, id)
     }
 
     return next(e)
@@ -407,26 +652,96 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const id = e.agentId
     if (id === undefined) return next(e)
+    pausedAt.delete(id)
     await keepMiniBusy($, id)
     // What it is doing now, as the background tasks list says it: the call's
     // own description (`Wait for 95 seconds`), else the tool's name.
     const doing = 'description' in e && typeof e.description === 'string' ? e.description : String(e.tool)
     await patchScene($, s => ({
       ...s,
-      minis: s.minis.map(mini => (mini.id === id ? { ...mini, task: doing } : mini)),
+      minis: s.minis.map(mini =>
+        mini.id === id
+          ? { ...mini, task: doing, tools: mini.tools + 1, recent: [doing, ...mini.recent].slice(0, 4) }
+          : mini,
+      ),
     }))
     const ran = await next(e)
-    if (waitsOf.has(id) && startsBackgroundWork(String(e.tool), e, ran.result)) {
+    if (known.has(id) && startsBackgroundWork(String(e.tool), e, ran.result)) {
       waitsOf.set(id, (waitsOf.get(id) ?? 0) + 1)
     }
 
     return ran
   })
 
-  on('ui.message', { element: 'lash' }, async ($, e, next) => {
-    await crackWhip($)
+  // Clicks on the band's regions. The main mascot's and the backdrop's
+  // across the whole band: a left click anywhere cracks the whip and closes
+  // a mini's open menu. A mini's: a left click opens the crew's pane, a right
+  // click its menu (again, if open: a press may be reported twice).
+  on('ui.message', async ($, e, next) => {
+    const data = e.data
+    if (e.element === 'lash' && typeof data === 'object' && data !== null && 'size' in data) {
+      const size = data.size as { columns: number }
+      if (size.columns > 0) cellUnits = MAIN_WIDTH / size.columns
+
+      return next(e)
+    }
+    const click = clickOf(data)
+    const isRight = click?.button === 'right'
+    if (e.element === 'lash' || (e.element === 'lash-backdrop' && !isRight)) {
+      await update($, popup, () => null)
+      await crackWhip($, click === undefined ? undefined : pointOf(click), e.element === 'lash')
+    } else if (e.element.startsWith('mini:')) {
+      const id = e.element.slice('mini:'.length)
+      if (isRight) await update($, popup, (): Popup => ({ id, kind: 'menu' }))
+      else {
+        await update($, popup, () => null)
+        await openCrew($)
+      }
+    }
 
     return next(e)
+  })
+
+  on('ui.render', { component: 'Pane', requestId: CREW_PANE }, async ($, e, next) => {
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const now = await read($, scene)
+    const at = await $.clock.now()
+    const agents = (await agentsNow($)) ?? []
+    const busy = now.minis.filter(mini => !mini.isDone)
+    const job = jobOf(Math.max(0, now.job))
+    const head = !isOnStage(now)
+      ? 'Клод отдыхает под инпутом'
+      : busy.length > 0
+        ? `Клод (${job.name}) ждёт ${busy.length} клодик(ов)`
+        : now.isWorking
+          ? `Клод работает: ${job.name}`
+          : 'Все задачи выполнены'
+
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Text bold>{head}</Text>
+        {busy.length === 0 && <Text dimColor>Клодиков сейчас нет.</Text>}
+        {busy.map(mini => {
+          const agent = agents.find(one => one.id === mini.id)
+
+          return (
+            <Box key={`crew-${mini.id}`} flexDirection="column">
+              <Text bold color={ORANGE}>
+                {`${jobOf(mini.job).emoji} ${mini.given || mini.task}`}
+              </Text>
+              {mini.model !== '' && <Text dimColor>{`Модель: ${mini.model}${mini.type === '' ? '' : ` · агент ${mini.type}`}`}</Text>}
+              <Text>{`Статус: ${statusWord(agent)} · ${sinceText(at - mini.at)} · инструментов: ${mini.tools}`}</Text>
+              <Text>{`Сейчас: ${mini.task}`}</Text>
+              {mini.recent.length > 1 && <Text dimColor>{`Недавно: ${mini.recent.slice(1).join(' ← ')}`}</Text>}
+              <Box flexDirection="row" gap={2}>
+                <Button key={`crew-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
+                <Button key={`crew-ask-${mini.id}`} label="⏱ Сколько осталось?" plain onPress={() => void askAboutMini($, mini.id)} />
+              </Box>
+            </Box>
+          )
+        })}
+      </Box>
+    )
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -437,6 +752,11 @@ export const register: Register = on => {
     const isWaiting = now.minis.length > 0
     const minis = now.minis.slice(0, MAX_MINIS)
     const onWhip = () => void crackWhip($)
+    const at = await $.clock.now()
+    // The band knows when the main turn is over: a stage still showing it at
+    // work has missed its end.
+    if (now.isWorking && !e.props.isWorking && at - turnStartedAt > 3000) void settleMainTurn($)
+    startSweep($)
 
     if (e.surface === 'terminal') {
       const { Box, Button, Text } = $.ui.resolve(e)
@@ -476,7 +796,10 @@ export const register: Register = on => {
               </Box>
             ))}
           </Box>
-          <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />
+          <Box flexDirection="row" gap={2}>
+            <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />
+            {isWaiting && <Button key="crew" label="📋 Клодики" plain onPress={() => void openCrew($)} />}
+          </Box>
         </Box>
       )
     }
@@ -486,7 +809,6 @@ export const register: Register = on => {
     // A click on the main mascot cracks the whip, where the surface can take
     // the click (a Client); elsewhere the FASTER button does.
     const Client = 'Client' in elements ? elements.Client : undefined
-    const at = await $.clock.now()
     const handoffLeft = now.handoffAt + FINISH_MS - at
     // A fresh lash at the minis takes the whip out of the main mascot's hand
     // for the swing that the whip's own drawing shows.
@@ -527,9 +849,28 @@ export const register: Register = on => {
         elapsed: Math.max(0, at - mini.doneAt) / 1000,
         job: jobOf(mini.job),
       }))
-    const asked = await read($, ask)
-    const askLeft = ASK_EVERY_MS - (at - asked.at)
-    const timer = asked.isOn && askLeft > 0 ? askTimer(askLeft, ASK_EVERY_MS) : undefined
+    const slots = slotsOf(now)
+    const width = stageWidth(stage)
+    const pctOf = (w: number) => `${Math.floor((w / width) * 100)}%`
+    // What is open for a mini: its menu or its card, above it.
+    const open = await read($, popup)
+    const openMini = open === null ? undefined : shown(now).find(mini => mini.id === open.id && !mini.isDone)
+    // The popup's left edge: centred over its mini, as far left as the
+    // band's edge allows.
+    const popupLeft =
+      openMini === undefined
+        ? 1
+        : Math.max(
+            1,
+            Math.round(
+              (MAIN_WIDTH + (openMini.slot + 0.5) * MINI_WIDTH) * SCALE -
+                (open?.kind === 'details' ? DETAILS_PX : MENU_PX) / 2,
+            ),
+          )
+    const openCard = open !== null && openMini !== undefined
+      ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at)
+      : undefined
+    const fxW = fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
     const fx =
       isFresh || leavers.length > 0
         ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
@@ -540,20 +881,34 @@ export const register: Register = on => {
     // images, not interactive frames: a frame loads blank white on every
     // redraw of the band.
     return (
-      <Box flexDirection="column" alignItems="flex-start">
-        {timer !== undefined && (
-          // In the band's top right corner: the seconds till the next
-          // question can be asked.
-          <Box key="ask-timer" position="absolute" top={0} right={0}>
-            <Svg
-              source={timer}
-              alt={`Следующий вопрос через ${Math.ceil(askLeft / 1000)} с`}
-              width={ASK_TIMER_SIZE}
-              height={ASK_TIMER_SIZE}
+      <Box flexDirection="column" alignItems="flex-start" width="100%">
+        {Client === undefined && <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />}
+        {Client !== undefined && (
+          // Under everything else, across the whole band: a click on the
+          // bare band cracks the whip.
+          <Box key="backdrop" position="absolute" bottom={0} left={0} width="100%">
+            <Client
+              key="lash-backdrop"
+              module="./clicker.tsx"
+              props={{ rows: CLICK_ROWS }}
+              width="100%"
+              height={CLICK_ROWS}
             />
           </Box>
         )}
-        {Client === undefined && <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />}
+        {openCard !== undefined && openMini !== undefined && (
+          // Centred over its mini (as far left as the band's edge allows);
+          // placed, so it lies over the backdrop and its buttons take clicks.
+          <Box key="popup-row" position="relative" flexDirection="row" alignItems="flex-end">
+            <Svg
+              source={spacer(popupLeft)}
+              alt=""
+              width={popupLeft}
+              height={1}
+            />
+            {openCard}
+          </Box>
+        )}
         <Box key="row" flexDirection="row" alignItems="flex-end">
           <Box key="main">
             <Svg
@@ -563,18 +918,13 @@ export const register: Register = on => {
               height={HEIGHT * SCALE}
             />
           </Box>
-          {slotsOf(now).map((mini, slot) => {
+          {slots.map((mini, slot) => {
             const drawn =
               mini === undefined
                 ? { source: miniGone(), alt: 'Свободное место' }
                 : miniSvg(mini, jobOf(mini.job), at)
             const task = mini !== undefined && !mini.isDone ? mini.task : ''
 
-            const bubble = task === '' ? undefined : speechBubble(task)
-
-            // Hovering a working mini shows its bubble over its head. The
-            // bubble sits in a placed layer that is always there, empty till
-            // then, so showing it moves nobody and grows nothing.
             return (
               <Box key={`slot-${slot}`}>
                 <Svg
@@ -583,64 +933,89 @@ export const register: Register = on => {
                   width={MINI_WIDTH * SCALE}
                   height={HEIGHT * SCALE}
                 />
-                {bubble !== undefined && (
-                  <Box
-                    position="absolute"
-                    bottom={0}
-                    left={0}
-                    width={`${Math.ceil((bubble.width / (MINI_WIDTH * SCALE)) * 100)}%`}
-                  >
-                    {/* Drawn all along, parked far out of sight where the band
-                        clips it, so its picture is loaded before the first
-                        hover; the hover brings it in. */}
-                    <Box
-                      position="absolute"
-                      bottom={0}
-                      left={-1000}
-                      width="100%"
-                      hover={{ left: 0 }}
-                    >
-                      <Svg
-                        source={bubble.source}
-                        alt={`Клодик говорит: ${task}`}
-                        width={bubble.width}
-                        height={bubble.height}
-                      />
-                    </Box>
-                  </Box>
-                )}
               </Box>
             )
           })}
-          {/* Last in the row, so the whip, the shut eyes and the cracks paint
-              over everyone's pictures. */}
+          {/* Over everyone's pictures, so the whip, the shut eyes and the
+              cracks paint over them. */}
           {fx !== undefined && (
-            <Box key="whip-fx" position="absolute" top={0} left={0} width="100%">
-              <Svg
-                source={fx}
-                alt="Хлыст"
-                width={stageWidth(stage) * SCALE}
-                height={HEIGHT * SCALE}
-              />
+            // As wide as the drawing, past the stage's end when the lash flies
+            // from a click beyond it: a picture is never squeezed into a
+            // narrower box.
+            <Box key="whip-fx" position="absolute" top={0} left={0} width={`${Math.ceil((fxW / width) * 100)}%`}>
+              <Svg source={fx} alt="Хлыст" width={fxW * SCALE} height={HEIGHT * SCALE} />
             </Box>
           )}
           {Client !== undefined && (
-            // Over everything, the whip's layer included, so every click on
-            // the main mascot lands; its cell is the row's first.
+            // Over everything, the whip's layer included, so every click
+            // lands: one region over the main mascot (a lash), one over each
+            // working mini (its pane, its menu), and each mini's bubble shown
+            // while its region is hovered.
+            // Hung from the row's bottom: a region may be taller than the row,
+            // and what rises past the band's top is clipped.
             <Box
-              key="lash-area"
+              key="hit-row"
               position="absolute"
-              top={0}
+              bottom={0}
               left={0}
-              width={`${Math.floor((MAIN_WIDTH / stageWidth(stage)) * 100)}%`}
+              width="100%"
+              flexDirection="row"
+              alignItems="flex-end"
             >
-              <Client
-                key="lash"
-                module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS }}
-                width="100%"
-                height={CLICK_ROWS}
-              />
+              <Box key="hit-main" width={pctOf(MAIN_WIDTH)}>
+                <Client
+                  key="lash"
+                  module="./clicker.tsx"
+                  props={{ rows: CLICK_ROWS, reportsSize: true }}
+                  width="100%"
+                  height={CLICK_ROWS}
+                />
+              </Box>
+              {slots.map((mini, slot) => {
+                const busy = mini !== undefined && !mini.isDone ? mini : undefined
+                const bubble = busy !== undefined && busy.task !== '' ? speechBubble(bubbleText(busy)) : undefined
+
+                // Hovering a working mini's region shows its bubble over its
+                // head. The bubble sits in a placed layer that is always
+                // there, so showing it moves nobody and grows nothing.
+                return (
+                  <Box key={`hit-${slot}`} width={pctOf(MINI_WIDTH)}>
+                    {bubble !== undefined && busy !== undefined && (
+                      <Box
+                        position="absolute"
+                        bottom={0}
+                        left={0}
+                        width={`${Math.ceil((bubble.width / (MINI_WIDTH * SCALE)) * 100)}%`}
+                      >
+                        {/* Drawn all along, parked far out of sight where the
+                            band clips it, so its picture is loaded before the
+                            first hover; the hover brings it in. */}
+                        <Box position="absolute" bottom={0} left={-1000} width="100%" hover={{ left: 0 }}>
+                          <Svg
+                            source={bubble.source}
+                            alt={`Клодик говорит: ${bubbleText(busy)}`}
+                            width={bubble.width}
+                            height={bubble.height}
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {/* Over the bubble, which covers the mini while it shows:
+                        a click lands on the region all the same. */}
+                    {busy !== undefined && (
+                      <Box position="absolute" bottom={0} left={0} width="100%">
+                        <Client
+                          key={`mini:${busy.id}`}
+                          module="./clicker.tsx"
+                          props={{ rows: CLICK_ROWS }}
+                          width="100%"
+                          height={CLICK_ROWS}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
             </Box>
           )}
         </Box>

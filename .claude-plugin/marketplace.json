@@ -8,8 +8,8 @@
     {
       "name": "mascot-crew",
       "source": "./plugins/mascot-crew",
-      "description": "Claude mascot works above the prompt in a random profession, hands tasks to mini Claudes for each subagent, and takes a FASTER whip.",
-      "version": "0.1.0"
+      "description": "Claude mascot works above the prompt in a random profession, hands tasks to mini Claudes for each subagent, takes a whip on click, and lets you stop or inspect each subagent.",
+      "version": "0.2.0"
     }
   ]
 }

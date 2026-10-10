@@ -14,6 +14,14 @@ export type Mini = {
   // What its subagent is doing now (its latest tool call's description, at
   // first the task it was given), shown on hover.
   task: string
+  // The task it was given, its agent type, how many tools it has called and
+  // what it did last (newest first): its details card.
+  given: string
+  type: string
+  // The model its subagent runs on, as people name it (`Sonnet 5.5`).
+  model: string
+  tools: number
+  recent: string[]
 }
 
 export type Whip = 'none' | 'minis' | 'self'
@@ -21,11 +29,19 @@ export type Whip = 'none' | 'minis' | 'self'
 // The last click of the whip, when, and the row it was drawn over: a redraw
 // after it, or over a row that has changed, does not play it again.
 // `isStreak`: it came while the last one still hurt, so the pain runs on.
-export type Lash = { n: number; kind: 'minis' | 'self'; row: string; at: number; isStreak: boolean }
+// `from`: where the person clicked, in the drawing's units from the stage's
+// bottom-left, when it is known: a lash at the main mascot flies from there.
+export type Lash = {
+  n: number
+  kind: 'minis' | 'self'
+  row: string
+  at: number
+  isStreak: boolean
+  from?: { x: number; y: number }
+}
 
-// The last question asked in the chat: when, and whether its countdown to
-// the next one is still on show.
-export type Ask = { at: number; isOn: boolean }
+// What is open over a mini: its right-click menu, or its details card.
+export type Popup = { id: string; kind: 'menu' | 'details' } | null
 
 export type Scene = {
   isWorking: boolean
@@ -43,6 +59,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; ask: Ask }
+    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup }
   }
 }

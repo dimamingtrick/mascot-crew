@@ -464,6 +464,30 @@ const lashPath = (rest: string, struck: string) =>
 // left alone, so it neither jumps nor starts its animation over.
 // How long a lash hurts; a click within it keeps the pain on unbroken.
 export const PAIN_MS = (HIT + 0.45) * 1000
+// A lash thrown from the person's hand at `from` onto the main mascot: it
+// flies out from the hand (drawn on along its length, whipping from a high
+// arc to a taut one), lands at the hit, hangs a moment and fades.
+const thrown = (from: { x: number; y: number }) => {
+  const x = from.x.toFixed(1)
+  const y = from.y.toFixed(1)
+  const midX = ((from.x + 36) / 2).toFixed(1)
+  const high = (Math.min(from.y, 30) - 18).toFixed(1)
+  const low = (Math.max(from.y, 30) + 10).toFixed(1)
+  const taut = ((from.y + 30) / 2 + 3).toFixed(1)
+  const shape = (sagY: string) => `M${x} ${y} Q${midX} ${sagY} 36 30`
+  const fly = HIT
+  const end = HIT + 0.35
+
+  return (
+    `<path d="${shape(high)}" stroke="#5b3a1e" stroke-width="2" fill="none" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100">` +
+    `<animate attributeName="stroke-dashoffset" values="100;0" dur="${fly}s" fill="freeze"/>` +
+    `<animate attributeName="d" values="${shape(high)};${shape(low)};${shape(taut)}" keyTimes="0;0.55;1" dur="${end}s" fill="freeze"/>` +
+    `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" dur="${end}s" fill="freeze"/>` +
+    '</path>' +
+    `<circle cx="${x}" cy="${y}" r="2.2" fill="#5b3a1e"><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" dur="${end}s" fill="freeze"/></circle>`
+  )
+}
+
 const ouch = (transform: string, isStreak: boolean) =>
   `<g transform="${transform}" opacity="0">${isStreak ? shown(0, HIT + 0.45) : shown(HIT, 0.45)}<rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
 const crack = (x: number, y: number, size: number) =>
@@ -472,6 +496,10 @@ const crack = (x: number, y: number, size: number) =>
 export type Stage = { mainWidth: number; minis: readonly { isBusy: boolean }[] }
 
 export const stageWidth = (stage: Stage) => stage.mainWidth + stage.minis.length * MINI_WIDTH
+
+// The whip's drawing: the stage, and as far right as a click it flies from.
+export const fxWidth = (stage: Stage, from?: { x: number }) =>
+  Math.max(stageWidth(stage), Math.ceil((from?.x ?? 0) + 4))
 
 // A transparent drawing laid over the whole row. With no lash it is empty;
 // with one (`n` numbering the click, so each click plays anew) the main
@@ -509,15 +537,23 @@ export type Leaver = { fromX: number; elapsed: number; job: Job }
 // The overlay across the whole row: the minis walking home, and a fresh lash.
 export const stageFx = (
   stage: Stage,
-  lash: { n: number; kind: 'minis' | 'self'; isStreak: boolean; elapsed: number } | undefined,
+  lash:
+    | { n: number; kind: 'minis' | 'self'; isStreak: boolean; elapsed: number; from?: { x: number; y: number } }
+    | undefined,
   leavers: readonly Leaver[],
 ) => {
-  const width = stageWidth(stage)
+  const width = fxWidth(stage, lash?.kind === 'self' ? lash.from : undefined)
   const home = leavers.map(one => walkingHome(one.fromX, one.elapsed, one.job)).join('')
   if (lash === undefined) return svg(width, home)
   // Loaded again part way through, the lash goes on from where it was rather
   // than cracking a second time.
   const at = (markup: string) => shiftTime(markup, lash.elapsed)
+  if (lash.kind === 'self' && lash.from !== undefined) {
+    return svg(
+      width,
+      `${home}${at(`<g id="lash${lash.n}">${thrown(lash.from)}${ouch('translate(2,8)', lash.isStreak)}${crack(34, 30, 10)}</g>`)}`,
+    )
+  }
   if (lash.kind === 'self') {
     return svg(
       width,
@@ -630,16 +666,15 @@ const wrapWords = (text: string, width: number, maxLines: number) => {
 // of the mini and no taller than its slot (the band clips anything higher),
 // its tail down-left to the top of the head. Drawn in pixels from the slot's
 // bottom-left corner, clear everywhere but the bubble.
-export const speechBubble = (text: string) => {
+export const speechBubble = (text: string, lift = 5) => {
   const font = 12
   const charWidth = 6.6
-  const line = wrapWords(text, 40, 1)[0] ?? ''
+  const line = wrapWords(text, 56, 1)[0] ?? ''
   const bubbleW = Math.round(Math.max(4, line.length) * charWidth + 22)
   const bubbleH = 22
-  // Lifted this far above the slot's top, into the band's padding, so the
-  // bubble rides just under the band's top edge; drawn from the slot's
-  // bottom, its height is the slot's and this.
-  const lift = 4
+  // `lift`: how far above the slot's top it rides, into the band's padding,
+  // when hung from the slot's bottom (its height is the slot's and this);
+  // 0 when hung from the slot's top.
   const left = Math.round((DESK + 0.6 * 34) * SCALE)
   const tipX = (DESK + 0.6 * 30) * SCALE
   const tipY = lift + (20.8 + 0.6 * 9) * SCALE
@@ -657,44 +692,4 @@ export const speechBubble = (text: string) => {
   return { source, width, height }
 }
 
-// The countdown to the next question: a round clock face with the seconds
-// left, drawn on its own (`ASK_TIMER_SIZE` square), each digit set to show for its
-// own second, so it counts by itself without a redraw. `leftMs`: what is
-// left as it is drawn, of `totalMs`.
-export const ASK_TIMER_SIZE = 32
 
-export const askTimer = (leftMs: number, totalMs: number) => {
-  const width = ASK_TIMER_SIZE
-  const height = ASK_TIMER_SIZE
-  const r = 13
-  const cx = width / 2
-  const cy = height / 2
-  const seconds = Math.ceil(leftMs / 1000)
-  const end = (leftMs / 1000).toFixed(2)
-  const digits = Array.from({ length: seconds }, (_, i) => {
-    const n = seconds - i
-    const from = Math.max(0, (leftMs - n * 1000) / 1000).toFixed(2)
-    const to = ((leftMs - (n - 1) * 1000) / 1000).toFixed(2)
-    return (
-      `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="15" font-weight="700" ` +
-      `font-family="-apple-system, 'Helvetica Neue', sans-serif" fill="#1f1f1f" opacity="0">${n}` +
-      `<set attributeName="opacity" to="1" begin="${from}s"/>` +
-      `<set attributeName="opacity" to="0" begin="${to}s"/></text>`
-    )
-  }).join('')
-  // The ring runs down with the seconds.
-  const length = 2 * Math.PI * (r - 3)
-  const spent = ((totalMs - leftMs) / totalMs) * length
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
-    `<g>` +
-    `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="#1f1f1f" stroke-width="1.6"/>` +
-    `<circle cx="${cx}" cy="${cy}" r="${r - 3}" fill="none" stroke="${O}" stroke-width="2.4" ` +
-    `stroke-dasharray="${length.toFixed(2)}" stroke-dashoffset="${spent.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})">` +
-    `<animate attributeName="stroke-dashoffset" from="${spent.toFixed(2)}" to="${length.toFixed(2)}" dur="${end}s" fill="freeze"/>` +
-    `</circle>` +
-    digits +
-    `<set attributeName="opacity" to="0" begin="${end}s"/>` +
-    `</g></svg>`
-  )
-}
