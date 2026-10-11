@@ -17,6 +17,7 @@ import {
   jumpingDown,
   stageWidth,
   fxWidth,
+  widen,
   finishing,
   miniAtDesk,
   ENTER_MS,
@@ -48,6 +49,9 @@ const IDLE: Scene = {
 const scene = atom({ plugin: 'mascot-crew', key: 'scene' } as const, IDLE)
 
 const tick = atom({ plugin: 'mascot-crew', key: 'tick' } as const, 0)
+// The band's width in the drawing's units, 0 until its click regions have
+// reported their sizes: the minis stand from about its middle.
+const band = atom({ plugin: 'mascot-crew', key: 'band' } as const, 0)
 // Read by the terminal's drawing alone: the desktop does not redraw when a
 // lash ends.
 const whip = atom({ plugin: 'mascot-crew', key: 'whip' } as const, 'none' as Whip)
@@ -228,16 +232,28 @@ const slotsOf = (now: Scene) =>
     (_, slot) => shown(now).find(mini => mini.slot === slot),
   )
 
-const stageOf = (now: Scene): Stage => ({
-  mainWidth: MAIN_WIDTH,
+// The room between the main mascot and the first slot: the minis stand
+// from about the band's middle, or as far left as all of them need to fit.
+const gapOf = (now: Scene, bandWidth: number) => {
+  const count = slotsOf(now).length
+  if (bandWidth === 0 || count === 0) return 0
+  const fromMiddle = bandWidth / 2 - MINI_WIDTH / 2
+  const toFit = bandWidth - count * MINI_WIDTH - 4
+
+  return Math.max(0, Math.round(Math.min(fromMiddle, toFit) - MAIN_WIDTH))
+}
+
+const stageOf = (now: Scene, gap: number): Stage => ({
+  mainWidth: MAIN_WIDTH + gap,
   minis: slotsOf(now).map(mini => ({ isBusy: mini !== undefined && !mini.isDone })),
 })
 
 // The mini of a finished subagent salutes and jumps under the prompt.
 async function sendMiniHome($: EngineInterface, id: string) {
   const at = await $.clock.now()
-  const slot = (await read($, scene)).minis.find(mini => mini.id === id)?.slot ?? 0
-  const fromX = deskX(slot)
+  const now = await read($, scene)
+  const slot = now.minis.find(mini => mini.id === id)?.slot ?? 0
+  const fromX = deskX(slot, gapOf(now, await read($, band)))
   await patchScene($, s => ({
     ...s,
     minis: s.minis.map(mini => (mini.id === id ? { ...mini, isDone: true, doneAt: at, fromX } : mini)),
@@ -298,6 +314,12 @@ async function saluteWhenDone($: EngineInterface) {
 // click region reports its size (that region is MAIN_WIDTH units across); a
 // cell is taken to be about twice as tall as it is wide.
 let cellUnits: number | undefined
+// The band's columns, as the backdrop's click region reports them.
+let bandColumns: number | undefined
+// How wide the main mascot's click region was last drawn, in units: a whole
+// percentage of the row, so a little short of the mascot.
+let mainRegionUnits = MAIN_WIDTH
+let measuredAt: number | undefined
 const CELL_ASPECT = 2.1
 type Click = { button: 'left' | 'right'; x: number; y: number; columns: number; rows: number }
 
@@ -679,17 +701,34 @@ export const register: Register = on => {
   // click its menu (again, if open: a press may be reported twice).
   on('ui.message', async ($, e, next) => {
     const data = e.data
-    if (e.element === 'lash' && typeof data === 'object' && data !== null && 'size' in data) {
+    if (typeof data === 'object' && data !== null && 'size' in data) {
       const size = data.size as { columns: number }
-      if (size.columns > 0) cellUnits = MAIN_WIDTH / size.columns
+      if (size.columns > 0 && e.element === 'lash') cellUnits = mainRegionUnits / size.columns
+      if (size.columns > 0 && e.element === 'lash-backdrop') bandColumns = size.columns
+      // Measured once, and again only when the band itself changes size:
+      // the main mascot's region is sized by the stage, which the band's
+      // width moves, and measuring on each of its changes would never settle.
+      if (cellUnits !== undefined && bandColumns !== undefined && bandColumns !== measuredAt) {
+        measuredAt = bandColumns
+        const width = Math.round(bandColumns * cellUnits)
+        await update($, band, () => width)
+      }
 
       return next(e)
     }
     const click = clickOf(data)
     const isRight = click?.button === 'right'
-    if (e.element === 'lash' || (e.element === 'lash-backdrop' && !isRight)) {
+    // A bare band's region over part of the row, `lash-at-<x>`, starts `x`
+    // units from the stage's left.
+    const startsAt = e.element.startsWith('lash-at-') ? Number(e.element.slice('lash-at-'.length)) : 0
+    const isBare = e.element === 'lash-backdrop' || e.element.startsWith('lash-at-')
+    if (e.element === 'lash' || (isBare && !isRight)) {
+      const at =
+        click !== undefined && startsAt > 0 && cellUnits !== undefined
+          ? { ...click, x: click.x + startsAt / cellUnits }
+          : click
       await update($, popup, () => null)
-      await crackWhip($, click === undefined ? undefined : pointOf(click), e.element === 'lash')
+      await crackWhip($, at === undefined ? undefined : pointOf(at), e.element === 'lash')
     } else if (e.element.startsWith('mini:')) {
       const id = e.element.slice('mini:'.length)
       if (isRight) await update($, popup, (): Popup => ({ id, kind: 'menu' }))
@@ -839,7 +878,8 @@ export const register: Register = on => {
       now.leaveAt === 0 && sinceEnter < ENTER_MS
         ? { ...drawn, source: rising(drawn.source, sinceEnter / 1000) }
         : drawn
-    const stage = stageOf(now)
+    const gap = gapOf(now, await read($, band))
+    const stage = stageOf(now, gap)
     const last = await read($, lash)
     const isFresh = last.n > 0 && last.row === rowOf(now) && at - last.at < LASH_FRESH_MS
     const leavers = shown(now)
@@ -851,7 +891,6 @@ export const register: Register = on => {
       }))
     const slots = slotsOf(now)
     const width = stageWidth(stage)
-    const pctOf = (w: number) => `${Math.floor((w / width) * 100)}%`
     // What is open for a mini: its menu or its card, above it.
     const open = await read($, popup)
     const openMini = open === null ? undefined : shown(now).find(mini => mini.id === open.id && !mini.isDone)
@@ -863,7 +902,7 @@ export const register: Register = on => {
         : Math.max(
             1,
             Math.round(
-              (MAIN_WIDTH + (openMini.slot + 0.5) * MINI_WIDTH) * SCALE -
+              (stage.mainWidth + (openMini.slot + 0.5) * MINI_WIDTH) * SCALE -
                 (open?.kind === 'details' ? DETAILS_PX : MENU_PX) / 2,
             ),
           )
@@ -871,6 +910,11 @@ export const register: Register = on => {
       ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at)
       : undefined
     const fxW = fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
+    // The click regions reach as far as the lash's drawing: a picture takes
+    // clicks, and the next click where the lash still flies must reach them.
+    const reach = Math.max(width, fxW)
+    const hitPct = (w: number) => `${Math.floor((w / reach) * 100)}%`
+    mainRegionUnits = (Math.floor((MAIN_WIDTH / reach) * 100) / 100) * reach
     const fx =
       isFresh || leavers.length > 0
         ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
@@ -890,7 +934,7 @@ export const register: Register = on => {
             <Client
               key="lash-backdrop"
               module="./clicker.tsx"
-              props={{ rows: CLICK_ROWS }}
+              props={{ rows: CLICK_ROWS, reportsSize: true }}
               width="100%"
               height={CLICK_ROWS}
             />
@@ -912,9 +956,9 @@ export const register: Register = on => {
         <Box key="row" flexDirection="row" alignItems="flex-end">
           <Box key="main">
             <Svg
-              source={main.source}
+              source={gap > 0 ? widen(main.source, MAIN_WIDTH + gap) : main.source}
               alt={main.alt}
-              width={MAIN_WIDTH * SCALE}
+              width={(MAIN_WIDTH + gap) * SCALE}
               height={HEIGHT * SCALE}
             />
           </Box>
@@ -937,7 +981,7 @@ export const register: Register = on => {
             )
           })}
           {/* Over everyone's pictures, so the whip, the shut eyes and the
-              cracks paint over them. */}
+              cracks paint over them; under the click regions. */}
           {fx !== undefined && (
             // As wide as the drawing, past the stage's end when the lash flies
             // from a click beyond it: a picture is never squeezed into a
@@ -958,11 +1002,11 @@ export const register: Register = on => {
               position="absolute"
               bottom={0}
               left={0}
-              width="100%"
+              width={`${Math.ceil((reach / width) * 100)}%`}
               flexDirection="row"
               alignItems="flex-end"
             >
-              <Box key="hit-main" width={pctOf(MAIN_WIDTH)}>
+              <Box key="hit-main" width={hitPct(MAIN_WIDTH)}>
                 <Client
                   key="lash"
                   module="./clicker.tsx"
@@ -971,6 +1015,18 @@ export const register: Register = on => {
                   height={CLICK_ROWS}
                 />
               </Box>
+              {gap > 0 && (
+                // The bare band between the main mascot and the minis.
+                <Box key="hit-gap" width={hitPct(gap)}>
+                  <Client
+                    key={`lash-at-${MAIN_WIDTH}`}
+                    module="./clicker.tsx"
+                    props={{ rows: CLICK_ROWS }}
+                    width="100%"
+                    height={CLICK_ROWS}
+                  />
+                </Box>
+              )}
               {slots.map((mini, slot) => {
                 const busy = mini !== undefined && !mini.isDone ? mini : undefined
                 const bubble = busy !== undefined && busy.task !== '' ? speechBubble(bubbleText(busy)) : undefined
@@ -979,7 +1035,7 @@ export const register: Register = on => {
                 // head. The bubble sits in a placed layer that is always
                 // there, so showing it moves nobody and grows nothing.
                 return (
-                  <Box key={`hit-${slot}`} width={pctOf(MINI_WIDTH)}>
+                  <Box key={`hit-${slot}`} width={hitPct(MINI_WIDTH)}>
                     {bubble !== undefined && busy !== undefined && (
                       <Box
                         position="absolute"
@@ -1016,6 +1072,18 @@ export const register: Register = on => {
                   </Box>
                 )
               })}
+              {reach > width && (
+                // Past the stage's end, where the lash flies from.
+                <Box key="hit-rest" width={hitPct(reach - width)}>
+                  <Client
+                    key={`lash-at-${width}`}
+                    module="./clicker.tsx"
+                    props={{ rows: CLICK_ROWS }}
+                    width="100%"
+                    height={CLICK_ROWS}
+                  />
+                </Box>
+              )}
             </Box>
           )}
         </Box>

@@ -12,6 +12,14 @@ A mini whose subagent left work running in the background (a dev server, say) go
 
 ## Install
 
+One line (installs, or updates when already installed):
+
+```
+curl -fsSL https://raw.githubusercontent.com/dimamingtrick/mascot-crew/main/install.sh | bash
+```
+
+Or by hand:
+
 ```
 claude plugin marketplace add dimamingtrick/mascot-crew
 claude plugin install mascot-crew@dimamingtrick-mods
@@ -20,6 +28,8 @@ claude plugin install mascot-crew@dimamingtrick-mods
 Animated drawings show in the desktop app's Code tab; the terminal draws a block-glyph version.
 
 ## Update
+
+Run the install line again, or:
 
 ```
 claude plugin marketplace update dimamingtrick-mods

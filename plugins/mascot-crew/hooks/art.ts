@@ -424,8 +424,9 @@ const WALK_SPEED = 150
 const SALUTE_S = 0.6
 const DROP_S = 0.4
 
-// The x a mini starts its walk home from, its slot's desk.
-export const deskX = (slot: number) => MAIN_WIDTH + slot * MINI_WIDTH + DESK
+// The x a mini starts its walk home from, its slot's desk, `gap` units
+// between the main mascot and the first slot.
+export const deskX = (slot: number, gap = 0) => MAIN_WIDTH + gap + slot * MINI_WIDTH + DESK
 
 // How long its walk home, salute and jump take, in milliseconds.
 export const leaveMs = (fromX: number) =>
@@ -551,13 +552,13 @@ export const stageFx = (
   if (lash.kind === 'self' && lash.from !== undefined) {
     return svg(
       width,
-      `${home}${at(`<g id="lash${lash.n}">${thrown(lash.from)}${ouch('translate(2,8)', lash.isStreak)}${crack(34, 30, 10)}</g>`)}`,
+      `${home}${at(`<g id="lash${lash.n}">${thrown(lash.from)}${ouch('translate(2,8)', lash.isStreak)}${crack(17, 15, 10)}</g>`)}`,
     )
   }
   if (lash.kind === 'self') {
     return svg(
       width,
-      `${home}${at(`<g id="lash${lash.n}">${lashPath(`M${stage.mainWidth} 45 Q${stage.mainWidth} 45 ${stage.mainWidth} 45`, `M${stage.mainWidth} 45 Q70 47 36 30`)}${ouch('translate(2,8)', lash.isStreak)}${crack(34, 30, 10)}</g>`)}`,
+      `${home}${at(`<g id="lash${lash.n}">${lashPath(`M${stage.mainWidth} 45 Q${stage.mainWidth} 45 ${stage.mainWidth} 45`, `M${stage.mainWidth} 45 Q70 47 36 30`)}${ouch('translate(2,8)', lash.isStreak)}${crack(17, 15, 10)}</g>`)}`,
     )
   }
   const busy = stage.minis.flatMap((mini, i) => (mini.isBusy ? [stage.mainWidth + i * MINI_WIDTH] : []))
@@ -568,6 +569,12 @@ export const stageFx = (
 
   return svg(width, `${home}${at(`<g id="lash${lash.n}">${crewWhip(end)}${hits}</g>`)}`)
 }
+
+// A drawing made `width` units wide, what it shows kept at its left: the
+// room the minis keep from the main mascot. A picture is laid out as wide as
+// its own markup says, where a blank spacer beside it may take no room.
+export const widen = (markup: string, width: number) =>
+  markup.replace(/viewBox="0 0 [\d.]+ 46" width="[\d.]+"/, `viewBox="0 0 ${width} 46" width="${width * SCALE}"`)
 
 // The terminal's drawing: block glyphs, three rows an actor, two frames.
 const BIG = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ ▝▝'] as const

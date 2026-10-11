@@ -1,9 +1,11 @@
 import type { ClientModule } from 'claude-code'
 
-// When the last click was posted: a press reports a down and an up, and the
-// surface may pass on only one of them, so either one counts and its pair is
-// let go.
-let lastAt = 0
+// When a posted down is still waiting for its up: a press reports a down and
+// an up, and the surface may pass on only one of them, so either one counts
+// and the up of a posted down is let go. The up reaches the instance that
+// took the down. No wait between presses: quick clicks each count.
+let heldSince = 0
+const HOLD_MS = 2000
 
 // A see-through region laid over the band. It posts to the hooks module:
 // - `{ button, x, y, columns, rows }` for a click: left or right (the right
@@ -27,8 +29,11 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean }, boolean> = 
     if (event.type !== 'down' && event.type !== 'up') return
     if (event.button === 'middle') return
     const now = Date.now()
-    if (now - lastAt < 350) return
-    lastAt = now
+    if (event.type === 'up') {
+      const isPairOfDown = now - heldSince < HOLD_MS
+      heldSince = 0
+      if (isPairOfDown) return
+    } else heldSince = now
     surface.post({
       button: event.button === 'right' || event.ctrl === true ? 'right' : 'left',
       x: event.x,

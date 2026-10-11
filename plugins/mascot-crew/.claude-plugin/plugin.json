@@ -1,6 +1,6 @@
 {
   "name": "mascot-crew",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Claude mascot works above the prompt in a random profession, hands tasks to mini Claudes for each subagent, takes a whip on click, and lets you stop or inspect each subagent.",
   "author": {
     "name": "dimamingtrick"

@@ -297,3 +297,59 @@ test('with nobody else to lash, the lasso flies from where the person clicked to
   const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст'))
   expect(whip).toContain('M324.0 ')
 })
+
+test('quick clicks each crack the whip, a press counting once, the next one left of the last too', async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
+    findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
+  }
+  const lash = async () =>
+    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст')) ?? ''
+  await ui.pointer({ type: 'down', x: 60, y: 1, button: 'left', in: 'lash-backdrop' })
+  await ui.pointer({ type: 'up', x: 60, y: 1, button: 'left', in: 'lash-backdrop' })
+  expect(await lash()).toContain('id=\\"lash1\\"')
+  await ui.pointer({ type: 'down', x: 40, y: 1, button: 'left', in: 'lash-backdrop' })
+  await ui.pointer({ type: 'up', x: 40, y: 1, button: 'left', in: 'lash-backdrop' })
+  expect(await lash()).toContain('id=\\"lash2\\"')
+  await ui.pointer({ type: 'up', x: 30, y: 1, button: 'left', in: 'lash-backdrop' })
+  expect(await lash()).toContain('id=\\"lash3\\"')
+})
+
+test('the minis stand from about the band middle, and a click between them and the mascot cracks the whip', async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
+    post: (data: unknown, scope?: { in?: string }) => Promise<void>
+    findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
+  }
+  const widths = async () => (await ui.findAll({ type: 'Svg' })).map(svg => (svg as { props: { width: number } }).props.width)
+  await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
+  await ui.post({ size: { columns: 120, rows: 4 } }, { in: 'lash-backdrop' })
+  // The main mascot's region is a whole 67% of the 166-unit row: 7.94 units
+  // a cell, a band 953 across. The main mascot's picture keeps the room up
+  // to its middle: 112 + 338 units.
+  expect(Math.max(...(await widths()))).toBe(480)
+  await ui.post({ button: 'left', x: 10, y: 3, columns: 42, rows: 4 }, { in: 'lash-at-112' })
+  const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст'))
+  expect(whip).toContain('id=\\"lash1\\"')
+})
+
+test('a lash flying from past the stage leaves a click region over its tail', async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
+    post: (data: unknown, scope?: { in?: string }) => Promise<void>
+    findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
+  }
+  const lash = async () =>
+    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст')) ?? ''
+  await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
+  await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
+  expect(await lash()).toContain('M324.0 ')
+  // 112 units on, 5 cells in: the same spot the first click flew from.
+  await ui.pointer({ type: 'down', x: 26, y: 3, button: 'left', in: 'lash-at-112' })
+  expect(await lash()).toContain('id=\\"lash2\\"')
+  expect(await lash()).toContain('M324.0 ')
+})
