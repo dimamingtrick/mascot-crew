@@ -295,7 +295,7 @@ test('with nobody else to lash, the lasso flies from where the person clicked to
   await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
   await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
   const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст'))
-  expect(whip).toContain('M324.0 ')
+  expect(whip).toContain('translate(324.0,')
 })
 
 test('quick clicks each crack the whip, a press counting once, the next one left of the last too', async ($, on) => {
@@ -347,9 +347,29 @@ test('a lash flying from past the stage leaves a click region over its tail', as
     (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст')) ?? ''
   await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
   await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
-  expect(await lash()).toContain('M324.0 ')
+  expect(await lash()).toContain('translate(324.0,')
   // 112 units on, 5 cells in: the same spot the first click flew from.
   await ui.pointer({ type: 'down', x: 26, y: 3, button: 'left', in: 'lash-at-112' })
   expect(await lash()).toContain('id=\\"lash2\\"')
-  expect(await lash()).toContain('M324.0 ')
+  expect(await lash()).toContain('translate(324.0,')
+})
+
+test('the crew pane shows each mini as a card: its picture, task, model, status and buttons', async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig', description: 'Dig a hole' } as never)
+  await $.agent.spawn({ prompt: 'fill', description: 'Fill it in' } as never)
+  const pane = (await $.ui.mount({
+    plugin: 'mascot-crew',
+    surface: 'desktop',
+    component: 'Pane',
+    requestId: 'crew',
+    props: { title: 'Клодики', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+  } as never)) as unknown as { findAll: (q: { type: string }) => Promise<unknown[]> }
+  const text = JSON.stringify(await pane.findAll({ type: 'Text' }))
+  expect(text).toContain('ждёт 2 клодиков')
+  expect(text).toContain('Dig a hole')
+  expect(text).toContain('Fill it in')
+  expect((await pane.findAll({ type: 'Svg' })).length).toBe(2)
+  expect((await pane.findAll({ type: 'Button' })).length).toBe(4)
 })

@@ -465,29 +465,11 @@ const lashPath = (rest: string, struck: string) =>
 // left alone, so it neither jumps nor starts its animation over.
 // How long a lash hurts; a click within it keeps the pain on unbroken.
 export const PAIN_MS = (HIT + 0.45) * 1000
-// A lash thrown from the person's hand at `from` onto the main mascot: it
-// flies out from the hand (drawn on along its length, whipping from a high
-// arc to a taut one), lands at the hit, hangs a moment and fades.
-const thrown = (from: { x: number; y: number }) => {
-  const x = from.x.toFixed(1)
-  const y = from.y.toFixed(1)
-  const midX = ((from.x + 36) / 2).toFixed(1)
-  const high = (Math.min(from.y, 30) - 18).toFixed(1)
-  const low = (Math.max(from.y, 30) + 10).toFixed(1)
-  const taut = ((from.y + 30) / 2 + 3).toFixed(1)
-  const shape = (sagY: string) => `M${x} ${y} Q${midX} ${sagY} 36 30`
-  const fly = HIT
-  const end = HIT + 0.35
-
-  return (
-    `<path d="${shape(high)}" stroke="#5b3a1e" stroke-width="2" fill="none" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100">` +
-    `<animate attributeName="stroke-dashoffset" values="100;0" dur="${fly}s" fill="freeze"/>` +
-    `<animate attributeName="d" values="${shape(high)};${shape(low)};${shape(taut)}" keyTimes="0;0.55;1" dur="${end}s" fill="freeze"/>` +
-    `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" dur="${end}s" fill="freeze"/>` +
-    '</path>' +
-    `<circle cx="${x}" cy="${y}" r="2.2" fill="#5b3a1e"><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" dur="${end}s" fill="freeze"/></circle>`
-  )
-}
+// The person's own whip, swung from their hand at `from` (a fist there)
+// onto the main mascot, the way the main mascot swings its own at the minis.
+const thrown = (from: { x: number; y: number }) =>
+  `<circle cx="${from.x.toFixed(1)}" cy="${from.y.toFixed(1)}" r="2.2" fill="#5b3a1e" opacity="0">${shown(0, HIT * 2.5)}</circle>` +
+  swungWhip(from, { x: 36, y: 30 }, Math.max(2, Math.min(from.y, 30) - 18), from.x >= 36 ? -1 : 1)
 
 const ouch = (transform: string, isStreak: boolean) =>
   `<g transform="${transform}" opacity="0">${isStreak ? shown(0, HIT + 0.45) : shown(HIT, 0.45)}<rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
@@ -498,16 +480,19 @@ export type Stage = { mainWidth: number; minis: readonly { isBusy: boolean }[] }
 
 export const stageWidth = (stage: Stage) => stage.mainWidth + stage.minis.length * MINI_WIDTH
 
-// The whip's drawing: the stage, and as far right as a click it flies from.
+// The whip's drawing: the stage, and as far right as a click it is swung
+// from, the handle's wind back included.
 export const fxWidth = (stage: Stage, from?: { x: number }) =>
-  Math.max(stageWidth(stage), Math.ceil((from?.x ?? 0) + 4))
+  Math.max(stageWidth(stage), Math.ceil((from?.x ?? 0) + 12))
 
 // A transparent drawing laid over the whole row. With no lash it is empty;
 // with one (`n` numbering the click, so each click plays anew) the main
 // mascot cracks the whip once over every busy mini, or takes it itself.
-// The main mascot's whip: a handle swung from its hand at (39,25) and a lash
-// that leaves from the handle's tip at every step of the swing, out to `end`.
-const crewWhip = (end: number) => {
+// A whip swung from a hand at `hand`: its handle winds back, strikes and
+// returns to the hold, and the lash leaves from the handle's tip at every
+// step of the swing, arcing up to `arch` and out to `target`. `side` is the
+// way it strikes: 1 to the right, -1 to the left.
+const swungWhip = (hand: { x: number; y: number }, target: { x: number; y: number }, arch: number, side: 1 | -1) => {
   const dur = `${HIT * 2.5}s`
   // From where it is held: a wind back, the strike, and back to the hold.
   const steps = [
@@ -516,22 +501,26 @@ const crewWhip = (end: number) => {
     { angle: 80, reach: 1 },
     { angle: 40, reach: 0.4 },
     { angle: HELD_ANGLE, reach: 0 },
-  ]
+  ].map(step => ({ ...step, angle: step.angle * side }))
   const keyTimes = '0;0.3;0.55;0.8;1'
   const lerp = (a: number, b: number, k: number) => (a + (b - a) * k).toFixed(1)
   const paths = steps.map(({ angle, reach }) => {
     const rad = (angle * Math.PI) / 180
-    const x = 39 + 9 * Math.sin(rad)
-    const y = 25 - 9 * Math.cos(rad)
+    const x = hand.x + 9 * Math.sin(rad)
+    const y = hand.y - 9 * Math.cos(rad)
 
-    return `M${x.toFixed(1)} ${y.toFixed(1)} Q${lerp(x, (x + end) / 2, reach)} ${lerp(y, 0, reach)} ${lerp(x, end, reach)} ${lerp(y, 34, reach)}`
+    return `M${x.toFixed(1)} ${y.toFixed(1)} Q${lerp(x, (x + target.x) / 2, reach)} ${lerp(y, arch, reach)} ${lerp(x, target.x, reach)} ${lerp(y, target.y, reach)}`
   })
 
   return (
-    `<g transform="translate(39,25)" opacity="0">${shown(0, HIT * 2.5)}<g>${rot(steps.map(step => step.angle).join(';'), dur, `keyTimes="${keyTimes}"`)}<rect x="-1" y="-9" width="2" height="9" fill="#5b3a1e"/></g></g>` +
+    `<g transform="translate(${hand.x.toFixed(1)},${hand.y.toFixed(1)})" opacity="0">${shown(0, HIT * 2.5)}<g>${rot(steps.map(step => step.angle).join(';'), dur, `keyTimes="${keyTimes}"`)}<rect x="-1" y="-9" width="2" height="9" fill="#5b3a1e"/></g></g>` +
     `<path ${LASH} d="${paths[0]}" opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="${dur}"/><animate attributeName="d" values="${paths.join(';')}" keyTimes="${keyTimes}" dur="${dur}"/></path>`
   )
 }
+
+// The main mascot's whip, from its hand at (39,25) out over the minis to
+// `end`.
+const crewWhip = (end: number) => swungWhip({ x: 39, y: 25 }, { x: end, y: 34 }, 0, 1)
 
 export type Leaver = { fromX: number; elapsed: number; job: Job }
 

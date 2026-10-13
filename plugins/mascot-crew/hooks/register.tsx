@@ -377,6 +377,26 @@ const STATUS_WORDS: Record<string, string> = {
 const statusWord = (agent: AgentInfo | undefined) =>
   agent === undefined ? 'нет в списке задач' : (STATUS_WORDS[agent.status] ?? agent.status)
 
+// The colour of a status's dot in the crew pane.
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'suggestion',
+  running: 'success',
+  waiting: 'warning',
+  idle: 'warning',
+  completed: 'inactive',
+  failed: 'error',
+  killed: 'error',
+}
+
+// `1 клодик`, `2 клодика`, `5 клодиков`.
+const plural = (n: number, [one, few, many]: readonly [string, string, string]) => {
+  const tens = n % 100
+  const units = n % 10
+  const word = tens >= 11 && tens <= 14 ? many : units === 1 ? one : units >= 2 && units <= 4 ? few : many
+
+  return `${n} ${word}`
+}
+
 // `1:05`, `12 с`: how long a mini has been at it.
 const sinceText = (ms: number) => {
   const seconds = Math.max(0, Math.round(ms / 1000))
@@ -742,7 +762,9 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'Pane', requestId: CREW_PANE }, async ($, e, next) => {
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Button, Text } = elements
+    const Svg = 'Svg' in elements ? elements.Svg : undefined
     const now = await read($, scene)
     const at = await $.clock.now()
     const agents = (await agentsNow($)) ?? []
@@ -751,30 +773,74 @@ export const register: Register = on => {
     const head = !isOnStage(now)
       ? 'Клод отдыхает под инпутом'
       : busy.length > 0
-        ? `Клод (${job.name}) ждёт ${busy.length} клодик(ов)`
+        ? `Клод-${job.name.toLowerCase()} ждёт ${plural(busy.length, ['клодика', 'клодиков', 'клодиков'])}`
         : now.isWorking
-          ? `Клод работает: ${job.name}`
+          ? `Клод-${job.name.toLowerCase()} работает`
           : 'Все задачи выполнены'
 
     return (
       <Box flexDirection="column" gap={1}>
-        <Text bold>{head}</Text>
+        <Box flexDirection="column">
+          <Text bold>{`${isOnStage(now) ? job.emoji : '💤'} ${head}`}</Text>
+          {busy.length > 0 && (
+            <Text dimColor>Наведи на клодика над инпутом, чтобы увидеть его задачу; правый клик — меню.</Text>
+          )}
+        </Box>
         {busy.length === 0 && <Text dimColor>Клодиков сейчас нет.</Text>}
         {busy.map(mini => {
           const agent = agents.find(one => one.id === mini.id)
+          const miniJob = jobOf(mini.job)
+          const earlier = mini.recent.slice(1, 4)
+          const facts = [
+            sinceText(at - mini.at),
+            plural(mini.tools, ['шаг', 'шага', 'шагов']),
+          ].join(' · ')
 
           return (
-            <Box key={`crew-${mini.id}`} flexDirection="column">
-              <Text bold color={ORANGE}>
-                {`${jobOf(mini.job).emoji} ${mini.given || mini.task}`}
-              </Text>
-              {mini.model !== '' && <Text dimColor>{`Модель: ${mini.model}${mini.type === '' ? '' : ` · агент ${mini.type}`}`}</Text>}
-              <Text>{`Статус: ${statusWord(agent)} · ${sinceText(at - mini.at)} · инструментов: ${mini.tools}`}</Text>
-              <Text>{`Сейчас: ${mini.task}`}</Text>
-              {mini.recent.length > 1 && <Text dimColor>{`Недавно: ${mini.recent.slice(1).join(' ← ')}`}</Text>}
-              <Box flexDirection="row" gap={2}>
-                <Button key={`crew-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
-                <Button key={`crew-ask-${mini.id}`} label="⏱ Сколько осталось?" plain onPress={() => void askAboutMini($, mini.id)} />
+            <Box
+              key={`crew-${mini.id}`}
+              flexDirection="column"
+              gap={1}
+              borderStyle="round"
+              borderColor="promptBorder"
+              paddingX={1}
+            >
+              <Box flexDirection="row" gap={2} alignItems="center">
+                {Svg !== undefined && (
+                  <Svg
+                    source={shiftTime(miniAtDesk(miniJob), (at - mini.at) / 1000)}
+                    alt={`Клодик-${miniJob.name.toLowerCase()}`}
+                    width={MINI_WIDTH * SCALE}
+                    height={HEIGHT * SCALE}
+                  />
+                )}
+                <Box flexDirection="column" flexShrink={1}>
+                  <Text bold color={ORANGE}>
+                    {`${miniJob.emoji} ${mini.given || mini.task}`}
+                  </Text>
+                  {mini.model !== '' && (
+                    <Text dimColor>{`${mini.model}${mini.type === '' ? '' : ` · ${mini.type}`}`}</Text>
+                  )}
+                  <Text>
+                    <Text color={STATUS_COLORS[agent?.status ?? ''] ?? 'inactive'}>{`● ${statusWord(agent)}`}</Text>
+                    <Text dimColor>{`  ${facts}`}</Text>
+                  </Text>
+                </Box>
+              </Box>
+              <Box flexDirection="column">
+                <Text>
+                  <Text dimColor>{'Сейчас  '}</Text>
+                  <Text>{mini.task}</Text>
+                </Text>
+                {earlier.map((step, index) => (
+                  <Text key={`crew-step-${mini.id}-${index}`} dimColor>
+                    {`${index === 0 ? 'Ранее   ' : '        '}${step}`}
+                  </Text>
+                ))}
+              </Box>
+              <Box flexDirection="row" gap={1}>
+                <Button key={`crew-stop-${mini.id}`} label="⏹ Остановить" onPress={() => void stopMini($, mini.id)} />
+                <Button key={`crew-ask-${mini.id}`} label="⏱ Сколько осталось?" onPress={() => void askAboutMini($, mini.id)} />
               </Box>
             </Box>
           )
