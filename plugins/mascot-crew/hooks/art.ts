@@ -214,6 +214,183 @@ export const JOBS: readonly Job[] = [
     dur: '1.1s',
     target: `<g fill="#8d6e63"><ellipse cx="54" cy="38" rx="3" ry="1.5"/><ellipse cx="62" cy="36" rx="3" ry="1.5"/><ellipse cx="70" cy="38" rx="3" ry="1.5"/></g><text x="66" y="24" font-size="12" fill="#e53935">?${blink('1;0.45;1', '0.8s')}</text>`,
   },
+  {
+    name: 'пекарь',
+    emoji: '🥖',
+    prop: '🍞',
+    hat: '<ellipse cx="22" cy="6" rx="13" ry="4.5" fill="#fff" stroke="#d0d0d0" stroke-width="0.6"/><rect x="9" y="7" width="22" height="2.5" fill="#eee"/>',
+    tool: '<rect x="-2.5" y="-18" width="5" height="14" rx="2.5" fill="#d7a86e"/><rect x="-1" y="-21" width="2" height="3" fill="#a0703c"/><rect x="-1" y="-4" width="2" height="3" fill="#a0703c"/>',
+    swing: '70;95;70',
+    dur: '0.5s',
+    target: `<rect x="48" y="34" width="30" height="6" fill="#8b5a2b"/><ellipse cx="63" cy="32" rx="8" ry="2.5" fill="#f3d9a4"><animate attributeName="rx" values="7;11;7" dur="0.5s" repeatCount="indefinite"/></ellipse><path d="M68 22 q4 -6 9 0 v3 h-9Z" fill="#c68642"/><g stroke="#ddd" stroke-width="0.8" fill="none"><path d="M70 19 q1 -2 0 -4">${blink('1;0.2;1', '1s')}</path><path d="M74 19 q1 -2 0 -4">${blink('0.2;1;0.2', '1s')}</path></g><g fill="#fff" opacity="0">${flash('0.5s')}<circle cx="54" cy="29" r="1.5"/><circle cx="72" cy="29" r="1.2"/></g>`,
+  },
+  {
+    name: 'почтальон',
+    emoji: '✉️',
+    prop: '📬',
+    hat: '<rect x="9" y="3" width="22" height="6" rx="2" fill="#1e3a8a"/><rect x="18" y="4" width="4" height="2.5" fill="#ffd54a"/><path d="M22 9 h12 l-2 2 h-10Z" fill="#111827"/>',
+    tool: '<rect x="-5" y="-14" width="10" height="7" fill="#fff" stroke="#9aa4ad" stroke-width="0.6"/><path d="M-5 -14 l5 4 l5 -4" stroke="#9aa4ad" stroke-width="0.6" fill="none"/>',
+    swing: '40;95;40',
+    dur: '0.8s',
+    target: `<rect x="63" y="26" width="2.5" height="14" fill="#555"/><path d="M56 27 v-9 q8 -6 16 0 v9Z" fill="#1e88e5"/><rect x="59" y="21" width="9" height="1.5" fill="#0d47a1"/><g><animateTransform attributeName="transform" type="rotate" values="0 73 22;-70 73 22;0 73 22" dur="0.8s" repeatCount="indefinite"/><rect x="72" y="14" width="1.5" height="8" fill="#e53935"/><rect x="73.5" y="14" width="4" height="3" fill="#e53935"/></g><rect x="-3" y="-2" width="6" height="4" fill="#fff" stroke="#9aa4ad" stroke-width="0.5"><animateMotion path="M46 22 Q54 8 63 21" dur="0.8s" repeatCount="indefinite"/></rect>`,
+  },
+  {
+    name: 'фотограф',
+    emoji: '📷',
+    prop: '🌼',
+    hat: '<path d="M8 9 Q12 1 24 2 Q33 3 34 9Z" fill="#6b7280"/><path d="M26 7 h12 l-3 2 h-9Z" fill="#4b5563"/>',
+    tool: '<rect x="-1" y="-6" width="2" height="6" fill="#333"/><rect x="-6" y="-14" width="12" height="8" rx="1" fill="#2d2d2d"/><circle cx="0" cy="-10" r="2.6" fill="#90caf9" stroke="#555" stroke-width="0.8"/><rect x="-5" y="-16" width="3" height="2" fill="#555"/>',
+    swing: '75;80;75',
+    dur: '1.2s',
+    target: `<path d="M63 40 l-2 -8 h8 l-2 8Z" fill="#26a69a"/><rect x="64.5" y="23" width="1" height="9" fill="#4caf50"/><g fill="#fff"><circle cx="65" cy="18" r="2.2"/><circle cx="65" cy="24" r="2.2"/><circle cx="62" cy="21" r="2.2"/><circle cx="68" cy="21" r="2.2"/></g><circle cx="65" cy="21" r="2" fill="#ffd54a"/><g opacity="0">${flash('1.2s')}<circle cx="52" cy="14" r="5" fill="#fffde7"/><path d="M52 5 v-3 M61 14 h3 M52 23 v3 M45 8 l-2 -2" stroke="#fff59d" stroke-width="1.2"/></g>`,
+  },
+  {
+    name: 'скульптор',
+    emoji: '🗿',
+    prop: '🏛️',
+    hat: '<path d="M7 9 Q20 1 33 9 L33 10 H7Z" fill="#c62828"/><path d="M33 9 l4 3 l-1 -5Z" fill="#c62828"/>',
+    tool: '<rect x="-1" y="-15" width="2" height="12" fill="#9aa4ad"/><rect x="-1.8" y="-6" width="3.6" height="6" fill="#8b5a2b"/>',
+    swing: '80;95;80',
+    dur: '0.3s',
+    target: `<rect x="56" y="34" width="18" height="6" fill="#9e9e9e"/><path d="M58 34 q0 -8 7 -10 q7 2 7 10Z" fill="#bdbdbd"/><circle cx="65" cy="19" r="6" fill="#cfcfcf"/><rect x="62" y="18" width="1.5" height="1.5" fill="#888"/><rect x="66.5" y="18" width="1.5" height="1.5" fill="#888"/><rect x="63" y="21.5" width="4" height="0.8" fill="#888"/><g fill="#e0e0e0" opacity="0">${flash('0.3s')}<rect x="56" y="16" width="1.5" height="1.5"/><rect x="53" y="20" width="1.2" height="1.2"/><rect x="55" y="24" width="1" height="1"/></g>`,
+  },
+  {
+    name: 'фермер',
+    emoji: '🌾',
+    prop: '🐔',
+    hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#2e7d32"/><rect x="14" y="3" width="12" height="4" fill="#fff"/><path d="M31 8 h7 l-1 2 h-6Z" fill="#1b5e20"/>',
+    tool: `${HANDLE}<path d="M-4 -16 v-6 M0 -16 v-7 M4 -16 v-6 M-4 -16 h8" stroke="#9aa4ad" stroke-width="1.2" fill="none"/>`,
+    swing: '-10;70;-10',
+    dur: '0.6s',
+    target: `<path d="M50 40 Q52 22 64 20 Q76 22 78 40Z" fill="#e8c547"/><path d="M54 32 l4 -3 M66 28 l5 2 M60 36 l6 -2 M70 34 l3 -3" stroke="#c9a227" stroke-width="0.8"/><g stroke="#e8c547" stroke-width="1" opacity="0">${flash('0.6s')}<path d="M52 17 l3 -2"/><path d="M47 21 l2 -3"/><path d="M57 13 l3 1"/></g>`,
+  },
+  {
+    name: 'космонавт',
+    emoji: '🚀',
+    prop: '🌕',
+    hat: '<circle cx="20" cy="16" r="18" fill="#bde0fe" fill-opacity="0.25" stroke="#e0e0e0" stroke-width="1.5"/><rect x="15" y="-3" width="10" height="2" fill="#e0e0e0"/>',
+    tool: '<rect x="-0.6" y="-22" width="1.2" height="22" fill="#cfd8dc"/><rect x="0.6" y="-22" width="9" height="6" fill="#e53935"/><rect x="0.6" y="-20" width="9" height="2" fill="#fff"/>',
+    swing: '10;22;10',
+    dur: '1s',
+    target: `<path d="M64 4 q6 6 6 18 v8 h-12 v-8 q0 -12 6 -18Z" fill="#eceff1" stroke="#90a4ae" stroke-width="0.6"/><circle cx="64" cy="16" r="2.5" fill="#4fc3f7" stroke="#90a4ae" stroke-width="0.6"/><path d="M58 22 l-4 9 h4Z M70 22 l4 9 h-4Z" fill="#e53935"/><path d="M60 30 h8 l-4 9Z" fill="#ff9800">${blink('1;0.4;1', '0.15s')}</path><path d="M62 30 h4 l-2 5Z" fill="#ffd54a"/><g fill="#fff"><circle cx="51" cy="8" r="0.8">${blink('1;0.2;1', '1.3s')}</circle><circle cx="77" cy="12" r="0.8">${blink('0.2;1;0.2', '1.1s')}</circle></g>`,
+  },
+  {
+    name: 'пират',
+    emoji: '🏴‍☠️',
+    prop: '💰',
+    hat: '<path d="M3 8 Q20 -7 37 8 Q20 3 3 8Z" fill="#212121"/><circle cx="20" cy="3" r="1.8" fill="#fff"/><rect x="12" y="12" width="6" height="6" rx="1" fill="#111"/><path d="M6 11 L34 15" stroke="#111" stroke-width="0.8"/>',
+    tool: '<rect x="-1.5" y="-4" width="3" height="4" fill="#8b5a2b"/><rect x="-3.5" y="-5.5" width="7" height="1.5" fill="#ffd54a"/><path d="M-1.2 -5.5 L-1.2 -21 Q3 -18 1.5 -5.5Z" fill="#cfd8dc"/>',
+    swing: '0;80;0',
+    dur: '0.5s',
+    target: `<g fill="#ffd54a" stroke="#c9a227" stroke-width="0.4">${[58, 64, 70]
+      .map(
+        (x, i) =>
+          `<circle cx="${x}" cy="27" r="1.8"><animate attributeName="cy" values="28;10;28" dur="0.9s" begin="${i * 0.3}s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}</g><rect x="54" y="28" width="20" height="12" fill="#8d5524"/><path d="M54 28 q10 -7 20 0Z" fill="#a0632d"/><rect x="54" y="31" width="20" height="1.5" fill="#ffd54a"/><rect x="62" y="30" width="4" height="4" fill="#ffd54a"/>`,
+  },
+  {
+    name: 'фокусник',
+    emoji: '🎩',
+    prop: '🐇',
+    hat: '<rect x="12" y="-6" width="16" height="13" fill="#212121"/><rect x="8" y="6" width="24" height="2.5" fill="#212121"/><rect x="12" y="3" width="16" height="2" fill="#c62828"/>',
+    tool: '<rect x="-1" y="-16" width="2" height="16" fill="#212121"/><rect x="-1" y="-18" width="2" height="3" fill="#fff"/>',
+    swing: '40;100;40',
+    dur: '0.9s',
+    target: `<g><animateTransform attributeName="transform" type="translate" values="0,9;0,0;0,0;0,9" keyTimes="0;0.25;0.75;1" dur="1.8s" repeatCount="indefinite"/><ellipse cx="65" cy="23" rx="4" ry="3.5" fill="#fff"/><rect x="62" y="13" width="2" height="8" rx="1" fill="#fff"/><rect x="66" y="13" width="2" height="8" rx="1" fill="#fff"/><circle cx="63.5" cy="22.5" r="0.6" fill="#111"/><circle cx="66.5" cy="22.5" r="0.6" fill="#111"/></g><rect x="58" y="27" width="14" height="9" fill="#212121"/><rect x="56" y="26" width="18" height="2" fill="#212121"/><rect x="52" y="36" width="26" height="4" fill="#6a1b9a"/><g fill="#ffd54a">${sparks(56, 14, '0.9s')}</g>`,
+  },
+  {
+    name: 'диджей',
+    emoji: '🎧',
+    prop: '💿',
+    hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#e53935"/><path d="M9 8 h-6 l1 2 h5Z" fill="#b71c1c"/>',
+    tool: `<rect x="-2" y="-5" width="4" height="5" fill="${O}"/>`,
+    swing: '85;105;85',
+    dur: '0.25s',
+    target: `<rect x="47" y="33" width="32" height="7" rx="1" fill="#37474f"/><g>${rot('0 58 24;360 58 24', '1s')}<circle cx="58" cy="24" r="8" fill="#111"/><circle cx="58" cy="24" r="5.5" fill="none" stroke="#333" stroke-width="0.5"/><circle cx="58" cy="24" r="2.5" fill="#e53935"/><rect x="57.5" y="17" width="1" height="3" fill="#666"/></g>${[
+      { x: 70, values: '4;13;7;11;4' },
+      { x: 73, values: '9;5;13;6;9' },
+      { x: 76, values: '6;11;4;12;6' },
+    ]
+      .map(
+        ({ x, values }) =>
+          `<rect x="${x}" y="20" width="2" height="13" fill="#7ee787"><animate attributeName="height" values="${values}" dur="0.8s" repeatCount="indefinite"/><animate attributeName="y" values="${values
+            .split(';')
+            .map(h => 33 - Number(h))
+            .join(';')}" dur="0.8s" repeatCount="indefinite"/></rect>`,
+      )
+      .join('')}`,
+  },
+  {
+    name: 'сантехник',
+    emoji: '🔧',
+    prop: '🚰',
+    hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#1565c0"/><path d="M31 8 h7 l-1 2 h-6Z" fill="#0d47a1"/><rect x="15" y="20" width="10" height="2.5" rx="1" fill="#4e342e"/>',
+    tool: '<rect x="-1.5" y="-14" width="3" height="13" fill="#e53935"/><path d="M-4.5 -20 h9 v5 h-3 v-2.5 h-3 v2.5 h-3Z" fill="#9aa4ad"/>',
+    swing: '60;100;60',
+    dur: '0.5s',
+    target: `<rect x="46" y="18" width="30" height="5" fill="#90a4ae"/><rect x="71" y="18" width="5" height="22" fill="#90a4ae"/><rect x="57" y="16" width="5" height="9" fill="#78909c"/><g fill="#4aa3df">${[0, 0.25]
+      .map(
+        begin =>
+          `<circle cx="60" cy="25" r="1.1"><animate attributeName="cy" values="24;38" dur="0.5s" begin="${begin}s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}</g><ellipse cx="61" cy="39" rx="6" ry="1.2" fill="#4aa3df" opacity="0.7"><animate attributeName="rx" values="4;7;4" dur="2s" repeatCount="indefinite"/></ellipse>`,
+  },
+  {
+    name: 'электрик',
+    emoji: '⚡',
+    prop: '💡',
+    hat: `${dome('#1e88e5')}<path d="M21 0 l-3 4 h2.5 l-2 4 l4.5 -5 h-2.5 l1.5 -3Z" fill="#ffd54a"/>`,
+    tool: '<rect x="-1.8" y="-8" width="3.6" height="8" rx="1" fill="#fdd835"/><rect x="-0.6" y="-17" width="1.2" height="9" fill="#9aa4ad"/>',
+    swing: '85;95;85',
+    dur: '0.25s',
+    target: `<path d="M68 0 v9" stroke="#333" stroke-width="0.8"/><rect x="66" y="9" width="4" height="3" fill="#78909c"/><circle cx="68" cy="16" r="5" fill="#fff59d">${blink('0.25;1;1;0.25', '1.2s')}</circle><rect x="50" y="22" width="13" height="18" fill="#b0bec5" stroke="#78909c" stroke-width="0.6"/><rect x="53" y="26" width="2" height="4" fill="#e53935"/><rect x="57" y="26" width="2" height="4" fill="#43a047"/><path d="M63 31 q4 0 5 -15" stroke="#333" stroke-width="0.8" fill="none"/>${sparks(52, 22, '0.25s')}`,
+  },
+  {
+    name: 'учитель',
+    emoji: '🎓',
+    prop: '📚',
+    hat: '<path d="M4 4 L20 -1 L36 4 L20 9Z" fill="#212121"/><rect x="13" y="5" width="14" height="4" fill="#212121"/><path d="M33 4 v6" stroke="#ffd54a" stroke-width="1"/><circle cx="33" cy="10.5" r="1" fill="#ffd54a"/>',
+    tool: '<rect x="-0.8" y="-24" width="1.6" height="24" fill="#8b5a2b"/>',
+    swing: '50;70;50',
+    dur: '0.9s',
+    target: `<path d="M54 28 L52 40 M74 28 L76 40" stroke="#8b5a2b" stroke-width="1.5"/><rect x="50" y="8" width="28" height="20" fill="#2e7d32" stroke="#8b5a2b" stroke-width="1.5"/><text x="53" y="17" font-size="6" fill="#fff">2+2</text><text x="64" y="17" font-size="6" fill="#fff">=4<animate attributeName="opacity" values="0;1;1" keyTimes="0;0.4;1" calcMode="discrete" dur="2s" repeatCount="indefinite"/></text><path d="M53 22 h12" stroke="#fff" stroke-width="0.8"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.7;1" calcMode="discrete" dur="2s" repeatCount="indefinite"/></path>`,
+  },
+  {
+    name: 'теннисист',
+    emoji: '🎾',
+    prop: '🏆',
+    hat: '<rect x="6" y="8.5" width="28" height="2.5" fill="#fff"/><rect x="6" y="8.5" width="28" height="0.8" fill="#e53935"/>',
+    tool: '<rect x="-1" y="-9" width="2" height="9" fill="#333"/><ellipse cx="0" cy="-15" rx="5" ry="6.5" fill="none" stroke="#e53935" stroke-width="1.5"/><path d="M-4 -15 h8 M0 -21 v12 M-3 -18 h6 M-3 -12 h6" stroke="#ddd" stroke-width="0.5"/>',
+    swing: '-30;90;-30',
+    dur: '0.8s',
+    target: `<rect x="44" y="39" width="40" height="1" fill="#fff"/><rect x="66" y="27" width="1.5" height="13" fill="#555"/><path d="M67.5 28 h9 M67.5 31 h9 M67.5 34 h9 M67.5 37 h9 M70 28 v12 M73 28 v12 M76 28 v12" stroke="#bbb" stroke-width="0.4"/><circle r="2" fill="#c6ff00"><animateMotion path="M50 20 Q62 2 78 38 Q81 30 84 33" dur="0.8s" repeatCount="indefinite"/></circle>`,
+  },
+  {
+    name: 'парикмахер',
+    emoji: '✂️',
+    prop: '💈',
+    hat: '<path d="M7 9 Q8 2 20 2 Q32 2 33 9 Q26 5 20 6 Q12 5 7 9Z" fill="#3e2723"/><rect x="25" y="-1" width="8" height="2" fill="#ec407a"/><path d="M26 1 v1.5 M28 1 v1.5 M30 1 v1.5 M32 1 v1.5" stroke="#ec407a" stroke-width="0.6"/>',
+    tool: `<circle cx="-2" cy="-1" r="2" fill="none" stroke="#ec407a" stroke-width="1.2"/><circle cx="2" cy="-1" r="2" fill="none" stroke="#ec407a" stroke-width="1.2"/><g>${rot('-14 0 -4;0 0 -4;-14 0 -4', '0.3s')}<path d="M-1 -4 L-0.5 -17 L0.5 -4Z" fill="#cfd8dc"/></g><g>${rot('14 0 -4;0 0 -4;14 0 -4', '0.3s')}<path d="M1 -4 L0.5 -17 L-0.5 -4Z" fill="#b0bec5"/></g>`,
+    swing: '75;85;75',
+    dur: '0.6s',
+    target: `<rect x="58" y="22" width="3" height="12" fill="#ec407a"/><rect x="58" y="30" width="18" height="4" fill="#ec407a"/><rect x="66" y="34" width="3" height="6" fill="#9e9e9e"/><rect x="62" y="18" width="12" height="12" fill="${O}"/><rect x="64" y="22" width="2" height="3" fill="${D}"/><rect x="70" y="22" width="2" height="3" fill="${D}"/><path d="M61 18 q7 -10 14 0Z" fill="#6d4c41"/><g fill="#6d4c41">${[60, 64, 70]
+      .map(
+        (x, i) =>
+          `<rect x="${x}" y="16" width="1.5" height="1"><animate attributeName="y" values="16;38" dur="1s" begin="${i * 0.33}s" repeatCount="indefinite"/></rect>`,
+      )
+      .join('')}</g>`,
+  },
+  {
+    name: 'археолог',
+    emoji: '🦴',
+    prop: '🦕',
+    hat: '<ellipse cx="20" cy="8.5" rx="16" ry="2.2" fill="#c8a165"/><path d="M10 8.5 Q20 -6 30 8.5Z" fill="#d7b377"/><rect x="10" y="6.5" width="20" height="1.5" fill="#8d6e63"/>',
+    tool: '<rect x="-1" y="-12" width="2" height="12" fill="#8b5a2b"/><rect x="-3" y="-17" width="6" height="5" rx="1" fill="#d7b377"/>',
+    swing: '80;110;80',
+    dur: '0.35s',
+    target: `<path d="M46 40 Q62 26 82 40Z" fill="#e0c18a"/><g fill="#fafafa" stroke="#bdbdbd" stroke-width="0.4"><rect x="57" y="33" width="12" height="2.5" rx="1"/><circle cx="57" cy="33" r="1.6"/><circle cx="57" cy="35.5" r="1.6"/><circle cx="69" cy="33" r="1.6"/><circle cx="69" cy="35.5" r="1.6"/></g><g fill="#e0c18a" opacity="0">${flash('0.35s')}<circle cx="52" cy="30" r="1.5"/><circle cx="55" cy="26" r="1"/><circle cx="50" cy="27" r="1"/></g>`,
+  },
 ]
 
 type Pose = {
