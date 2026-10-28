@@ -762,7 +762,7 @@ const LEFT_STUB = `<rect x="-2" y="-2" width="4" height="5" fill="${O}"/>`
 // raises its left wrist to glance at the watch.
 // `lashAt`: when (in seconds of this drawing) the held whip is swung: it
 // leaves the hand for the swing, which the lash's own drawing shows.
-const waitingBody = (job?: Job, lashAt?: number) => {
+const waitingBody = (job?: Job, lashAt?: number, lashFor = HIT * 2.5) => {
   const watch = `<g opacity="0">${lookOpacity('1', '0')}<g transform="rotate(35)">${arm(10)}<rect x="-2.2" y="-7" width="4.4" height="3" fill="#222"/><rect x="-1.2" y="-6.3" width="2.4" height="1.6" fill="#9be7ff"/></g></g>`
   const stub = `<g>${lookOpacity('0', '1')}${LEFT_STUB}</g>`
 
@@ -770,11 +770,14 @@ const waitingBody = (job?: Job, lashAt?: number) => {
     ...gear(job),
     legs: 'tap',
     leftHand: `<g transform="translate(4,17)">${stub}${watch}</g>`,
-    hand: `<g transform="translate(37,17)">${STUB}<g>${lashAt === undefined ? '' : `<set attributeName="opacity" to="0" begin="${lashAt.toFixed(2)}s" dur="${(HIT * 2.5).toFixed(2)}s"/>`}${HELD_WHIP}</g></g>`,
+    hand: `<g transform="translate(37,17)">${STUB}<g>${lashAt === undefined ? '' : `<set attributeName="opacity" to="0" begin="${lashAt.toFixed(2)}s" dur="${lashFor.toFixed(2)}s"/>`}${HELD_WHIP}</g></g>`,
   })}</g><text x="45" y="18" font-size="9" fill="#888" opacity="0">…${lookOpacity('1', '0')}</text>`
 }
 
-export const waiting = (job?: Job, lashAt?: number) => svg(MAIN_WIDTH, waitingBody(job, lashAt))
+// `lashFor`: how long the whip is out of the hand, in seconds (a lash's
+// swing, or the revolver's shots).
+export const waiting = (job?: Job, lashAt?: number, lashFor?: number) =>
+  svg(MAIN_WIDTH, waitingBody(job, lashAt, lashFor))
 
 // The handoff, in seconds: works on to the end of its own task, shows a
 // tick, then calls the minis through a megaphone; they climb out at CALL_MS.
@@ -969,13 +972,153 @@ const swungWhip = (hand: { x: number; y: number }, target: { x: number; y: numbe
 // `end`.
 const crewWhip = (end: number) => swungWhip({ x: 39, y: 25 }, { x: end, y: 34 }, 0, 1)
 
+// The revolver: up at once, its first shot at FIRE, one more every SHOT_GAP
+// along a row of minis. Each one hit at the feet hops for HOP.
+const FIRE = 0.05
+const SHOT_GAP = 0.18
+const HOP = 0.42
+// When shot `k` (from 0) is fired, in seconds after the click.
+export const shotAt = (k: number) => FIRE + k * SHOT_GAP
+// How long `shots` shots take to play out, the last hop included.
+export const shotMs = (shots: number) => Math.round((shotAt(Math.max(1, shots) - 1) + HOP + 0.1) * 1000)
+// Where a shot lands: the ground under the feet.
+const GROUND = 40.5
+
+// Pointing right from the grip, held at (0,0); its muzzle at MUZZLE.
+const REVOLVER =
+  '<path d="M-1 0.2 L1.8 0.2 L0.6 4.8 L-2.6 4.8Z" fill="#6d4c41"/>' +
+  '<path d="M1.8 0.4 q1.8 0 1.8 2 h-1.2" stroke="#37474f" stroke-width="0.6" fill="none"/>' +
+  '<rect x="-1" y="-3.2" width="5.6" height="3.6" fill="#455a64"/>' +
+  '<rect x="0.6" y="-3.9" width="3.4" height="4.6" rx="0.9" fill="#78909c"/>' +
+  '<rect x="1.2" y="-2.4" width="2.2" height="0.6" fill="#455a64"/>' +
+  '<rect x="4.4" y="-2.9" width="7.4" height="1.8" fill="#90a4ae"/>' +
+  '<rect x="10.6" y="-3.7" width="1" height="0.9" fill="#90a4ae"/>' +
+  '<rect x="-2" y="-4.2" width="1.6" height="1.3" fill="#37474f"/>'
+const MUZZLE = { x: 12.2, y: -2 }
+
+const at2 = (s: number) => `${s.toFixed(3)}s`
+
+// The aim from `hand` to `target`: the angle, whether it points left (the
+// revolver is then flipped to keep its top up), and its muzzle's place.
+const aim = (hand: { x: number; y: number }, target: { x: number; y: number }) => {
+  const angle = (Math.atan2(target.y - hand.y, target.x - hand.x) * 180) / Math.PI
+  const isLeft = target.x < hand.x
+  const rad = (angle * Math.PI) / 180
+  const my = isLeft ? -MUZZLE.y : MUZZLE.y
+
+  return {
+    angle,
+    isLeft,
+    muzzle: {
+      x: hand.x + MUZZLE.x * Math.cos(rad) - my * Math.sin(rad),
+      y: hand.y + MUZZLE.x * Math.sin(rad) + my * Math.cos(rad),
+    },
+  }
+}
+
+// One shot fired at `at` from `muzzle` to `target`: the flash at the
+// muzzle, the bullet's streak, and where it lands, dust and chips flying and
+// a 💥 of `size` at the feet.
+const shot = (muzzle: { x: number; y: number }, angle: number, target: { x: number; y: number }, at: number, size: number) => {
+  const flash =
+    `<g transform="translate(${muzzle.x.toFixed(1)},${muzzle.y.toFixed(1)}) rotate(${angle.toFixed(1)})" opacity="0"><set attributeName="opacity" to="1" begin="${at2(at)}" dur="0.07s"/>` +
+    '<path d="M0 -2.6 L2.6 -1.2 L6.5 0 L2.6 1.2 L0 2.6 L0.8 0Z" fill="#ffb300"/><path d="M0 -1.3 L3.6 0 L0 1.3Z" fill="#fff59d"/></g>'
+  const streak = `<line x1="${muzzle.x.toFixed(1)}" y1="${muzzle.y.toFixed(1)}" x2="${target.x.toFixed(1)}" y2="${target.y.toFixed(1)}" stroke="#fff59d" stroke-width="0.9" opacity="0"><set attributeName="opacity" to="1" begin="${at2(at)}" dur="0.05s"/></line>`
+  const hit = at + 0.04
+  const { x, y } = target
+  const dust = [-2.2, 0, 2.4]
+    .map(
+      (dx, i) =>
+        `<circle cx="${(x + dx).toFixed(1)}" cy="${(y - 0.6 - (i % 2)).toFixed(1)}" r="0" fill="#bcaaa4"><animate attributeName="r" values="0.6;${(2.2 + (i % 2)).toFixed(1)}" begin="${at2(hit)}" dur="0.35s"/><animate attributeName="opacity" values="0.9;0" begin="${at2(hit)}" dur="0.35s" fill="freeze"/></circle>`,
+    )
+    .join('')
+  const chips = [
+    [-5, -6],
+    [4, -7],
+    [7, -3],
+  ]
+    .map(
+      ([dx, dy]) =>
+        `<rect x="${(x - 0.5).toFixed(1)}" y="${(y - 1).toFixed(1)}" width="1.2" height="1.2" fill="#8d6e63" opacity="0"><set attributeName="opacity" to="1" begin="${at2(hit)}" dur="0.3s"/><animateTransform attributeName="transform" type="translate" values="0,0;${dx},${dy};${(dx ?? 0) * 1.4},${(dy ?? 0) * 0.3}" begin="${at2(hit)}" dur="0.3s"/></rect>`,
+    )
+    .join('')
+  const boom = `<text x="${(x - size * 0.55).toFixed(1)}" y="${Math.min(HEIGHT - 0.5, y + size * 0.4).toFixed(1)}" font-size="${size}" opacity="0">💥<set attributeName="opacity" to="1" begin="${at2(hit)}" dur="0.3s"/></text>`
+
+  return flash + streak + dust + chips + boom
+}
+
+// A revolver held at `hand` firing once at each of `targets` in turn, from
+// FIRE: it turns to each, kicks up at each shot, and is gone after.
+const revolver = (hand: { x: number; y: number }, targets: readonly { x: number; y: number }[], size: number) => {
+  const aims = targets.map(target => aim(hand, target))
+  const total = shotMs(targets.length) / 1000
+  const first = aims[0] ?? aim(hand, { x: hand.x + 10, y: hand.y })
+  // Turns to the next target between shots; the first aim is held from the
+  // start.
+  const turns =
+    aims.length > 1
+      ? `<animateTransform attributeName="transform" type="rotate" values="${aims.map(one => one.angle.toFixed(1)).join(';')}" keyTimes="0;${aims
+          .slice(1)
+          .map((_, k) => (shotAt(k + 1) - 0.06) / total)
+          .map(k => k.toFixed(3))
+          .join(';')}" calcMode="discrete" dur="${total.toFixed(3)}s" fill="freeze"/>`
+      : ''
+  const kicks = aims
+    .map((_, k) => `<animateTransform attributeName="transform" type="rotate" values="0;-32;0" keyTimes="0;0.2;1" begin="${at2(shotAt(k))}" dur="0.16s"/>`)
+    .join('')
+  const gun =
+    `<g transform="translate(${hand.x.toFixed(1)},${hand.y.toFixed(1)})" opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="${(total - 0.1).toFixed(3)}s"/>` +
+    `<g transform="rotate(${first.angle.toFixed(1)})">${turns}<g transform="scale(1,${first.isLeft ? -1 : 1})"><g>${kicks}${REVOLVER}</g></g></g></g>`
+
+  return gun + aims.map((one, k) => shot(one.muzzle, one.angle, targets[k] ?? one.muzzle, shotAt(k), size)).join('')
+}
+
+// The person's revolver, in their fist at `from`, fired at the main
+// mascot's feet at `hitX`; from the stage's right when where they clicked
+// is not known.
+const personShot = (from: { x: number; y: number }, hitX: number) => {
+  const target = { x: hitX, y: GROUND }
+  // Never so close the muzzle reaches past where it lands.
+  const hand = Math.hypot(from.x - target.x, from.y - target.y) < 16 ? { x: from.x, y: target.y - 16 } : from
+
+  return (
+    revolver(hand, [target], 10) +
+    `<circle cx="${hand.x.toFixed(1)}" cy="${(hand.y + 1.5).toFixed(1)}" r="2.2" fill="#5b3a1e" opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="${(shotMs(1) / 1000 - 0.1).toFixed(3)}s"/></circle>`
+  )
+}
+
+// Where a shot at a mini at its desk lands: under its feet, a little
+// to one side or the other from shot to shot.
+const miniFeetX = (x: number, n: number, k: number) => x + DESK + 12 + (((n * 7 + k * 5) % 9) - 4)
+
+// The actor's own drawing, its body hopping from a shot at its feet at
+// `begin` seconds into the drawing (past, if negative), its eyes squeezed
+// shut while it is up. Its target and the rest stay put. `isMini`: a mini's
+// drawing, its body a 0.6 scale at its desk.
+export const hopping = (drawing: string, begin: number, isMini = false) => {
+  const lift = isMini ? 13 : 7
+  const bounce = `<animateTransform attributeName="transform" type="translate" additive="sum" values="0,0;0,-${lift};0,0" keyTimes="0;0.4;1" calcMode="spline" keySplines="0.2 0.7 0.4 1;0.6 0 0.8 0.3" begin="${at2(begin)}" dur="${HOP}s"/>`
+  const body = '<g transform="translate(2,8)">'
+  const eyes = `<g transform="${isMini ? `translate(${DESK},20.8) scale(0.6)` : 'translate(2,8)'}" opacity="0"><set attributeName="opacity" to="1" begin="${at2(begin)}" dur="${HOP}s"/>${bounce}<rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
+
+  return drawing.split(body).join(body + bounce).replace(/<\/svg>$/, `${eyes}</svg>`)
+}
+
 export type Leaver = { fromX: number; elapsed: number; job: Job }
 
 // The overlay across the whole row: the minis walking home, and a fresh lash.
 export const stageFx = (
   stage: Stage,
   lash:
-    | { n: number; kind: 'minis' | 'self'; isStreak: boolean; elapsed: number; from?: { x: number; y: number } }
+    | {
+        n: number
+        kind: 'minis' | 'self'
+        isStreak: boolean
+        elapsed: number
+        from?: { x: number; y: number }
+        weapon?: 'lasso' | 'gun'
+        hitX?: number
+      }
     | undefined,
   leavers: readonly Leaver[],
 ) => {
@@ -985,6 +1128,19 @@ export const stageFx = (
   // Loaded again part way through, the lash goes on from where it was rather
   // than cracking a second time.
   const at = (markup: string) => shiftTime(markup, lash.elapsed)
+  if (lash.weapon === 'gun') {
+    if (lash.kind === 'self') {
+      const from = lash.from ?? { x: stage.mainWidth - 8, y: 28 }
+
+      return svg(width, `${home}${at(`<g id="lash${lash.n}">${personShot(from, lash.hitX ?? 22)}</g>`)}`)
+    }
+    // The main mascot fires once at the feet of each busy mini, left to right.
+    const feet = stage.minis
+      .flatMap((mini, i) => (mini.isBusy ? [stage.mainWidth + i * MINI_WIDTH] : []))
+      .map((x, k) => ({ x: miniFeetX(x, lash.n, k), y: GROUND }))
+
+    return svg(width, `${home}${at(`<g id="lash${lash.n}">${revolver({ x: 39, y: 25 }, feet, 7)}</g>`)}`)
+  }
   if (lash.kind === 'self' && lash.from !== undefined) {
     return svg(
       width,
@@ -1016,7 +1172,9 @@ export const widen = (markup: string, width: number) =>
 const BIG = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ ▝▝'] as const
 const SMALL = ['▐▛▜▌', ' ▘▝'] as const
 
-export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch'
+// `shoot`: firing the revolver at the minis; `hop`: jumping from a shot at
+// the feet.
+export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch' | 'shoot' | 'hop'
 
 export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => {
   const beside: Record<TermPose, [string, string]> = {
@@ -1025,14 +1183,23 @@ export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => 
     salute: [' 🫡', ''],
     whip: isOdd ? ['', ' ～～～💥'] : [' ～', ''],
     ouch: isOdd ? [` 💢${job.emoji}`, `   ${job.prop}`] : ['', `💥${job.emoji}${job.prop}`],
+    shoot: isOdd ? ['', ' ⌐╦╦═─ ⁍'] : ['', ' ⌐╦╦═─💥'],
+    hop: isOdd ? [' 💢', ''] : ['', ''],
   }
-  const feet = pose === 'wait' && isOdd ? '  ▘▘ ▝▘' : BIG[2]
+  const feet =
+    pose === 'wait' && isOdd ? '  ▘▘ ▝▘' : pose === 'hop' ? (isOdd ? '   💥' : '  ▘▘💥▝▝') : BIG[2]
 
   return [BIG[0] + beside[pose][0], BIG[1] + beside[pose][1], feet]
 }
 
 export const termMini = (pose: TermPose, job: Job, isOdd: boolean): string[] => {
   if (pose === 'salute') return ['  🫡', SMALL[0], SMALL[1]]
+  // Up a row off the ground, a 💥 where it stood.
+  if (pose === 'hop') {
+    return isOdd
+      ? [`${SMALL[0]}${job.emoji}`, `${SMALL[1]}  ${job.prop}`, ' 💥']
+      : ['', `${SMALL[0]}${job.emoji}${job.prop}`, `${SMALL[1]}💥`]
+  }
   if (pose === 'ouch') {
     return isOdd
       ? [`💥${SMALL[0]}${job.emoji}`, `  ${SMALL[1]}  ${job.prop}`, '']

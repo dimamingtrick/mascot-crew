@@ -34,6 +34,10 @@ const lash = (ui: Drawing, surface: 'terminal' | 'desktop') =>
     ? ui.press({ key: 'whip' })
     : ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'lash' })
 
+// A click punishes at random; these pin the lasso or the revolver.
+const LASSO = { options: { punishment: 'lasso' } }
+const REVOLVER = { options: { punishment: 'revolver' } }
+
 const toasts: string[] = []
 const stopped: string[] = []
 
@@ -139,7 +143,7 @@ test('a mini stays while its subagent waits on background work', async ($, on) =
   await ui.unmount()
 })
 
-test('one click is one lash, drawn once and never again on a redraw', async ($, on) => {
+test('one click is one lash, drawn once and never again on a redraw', LASSO, async ($, on) => {
   const clock = engine(on)
   on('prompt.submit', (_, e) => ({ text: e.text }))
   await $.turn.start({ text: 'go', turnId: 't' })
@@ -274,7 +278,7 @@ test('a subagent that left a server running goes home after a minute, and comes 
   await ui.unmount()
 })
 
-test('a click anywhere on the band cracks the whip', async ($, on) => {
+test('a click anywhere on the band cracks the whip', LASSO, async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -286,7 +290,7 @@ test('a click anywhere on the band cracks the whip', async ($, on) => {
   expect(await lashes()).toBe(1)
 })
 
-test('with nobody else to lash, the lasso flies from where the person clicked to the mascot', async ($, on) => {
+test('with nobody else to lash, the lasso flies from where the person clicked to the mascot', LASSO, async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as {
@@ -300,7 +304,7 @@ test('with nobody else to lash, the lasso flies from where the person clicked to
   expect(whip).toContain('translate(324.0,')
 })
 
-test('quick clicks each crack the whip, a press counting once, the next one left of the last too', async ($, on) => {
+test('quick clicks each crack the whip, a press counting once, the next one left of the last too', LASSO, async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -318,7 +322,7 @@ test('quick clicks each crack the whip, a press counting once, the next one left
   expect(await lash()).toContain('id=\\"lash3\\"')
 })
 
-test('the minis stand from about the band middle, and a click between them and the mascot cracks the whip', async ($, on) => {
+test('the minis stand from about the band middle, and a click between them and the mascot cracks the whip', LASSO, async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   await $.agent.spawn({ prompt: 'dig' } as never)
@@ -338,7 +342,7 @@ test('the minis stand from about the band middle, and a click between them and t
   expect(whip).toContain('id=\\"lash1\\"')
 })
 
-test('a lash flying from past the stage leaves a click region over its tail', async ($, on) => {
+test('a lash flying from past the stage leaves a click region over its tail', LASSO, async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -374,4 +378,67 @@ test('the crew pane shows each mini as a card: its picture, task, model, status 
   expect(text).toContain('Fill it in')
   expect((await pane.findAll({ type: 'Svg' })).length).toBe(2)
   expect((await pane.findAll({ type: 'Button' })).length).toBe(4)
+})
+
+type Band = Drawing & {
+  post: (data: unknown, scope?: { in?: string }) => Promise<void>
+  findAll: (q: { type: string }) => Promise<unknown[]>
+}
+const drawings = async (ui: Band) => (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg))
+// The bangs played, as the engine beneath the mod hears them.
+const bangs = (on: On) => {
+  const played: string[] = []
+  on('audio.play', (_, e) => {
+    played.push(JSON.stringify(e.clip))
+
+    return { value: undefined }
+  })
+
+  return () => played.filter(clip => clip.includes('gunshot.wav')).length
+}
+
+test('with the revolver, the person shoots at the mascot feet: it hops, with a bang', REVOLVER, async ($, on) => {
+  engine(on)
+  const played = bangs(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
+  await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
+  const all = await drawings(ui)
+  const shot = all.find(svg => svg.includes('Выстрел')) ?? ''
+  expect(shot).toContain('id=\\"lash1\\"')
+  // The bullet lands at the feet, and the 💥 with it.
+  expect(shot).toContain('💥')
+  expect(all.some(svg => svg.includes('Хлыст'))).toBe(false)
+  // The mascot's own drawing hops; its work stays where it is.
+  expect(all.find(svg => svg.includes('Клод работает')) ?? '').toContain('additive=\\"sum\\"')
+  expect(played()).toBe(1)
+})
+
+test('with the revolver, the mascot shoots at each busy mini in turn, a bang for each', REVOLVER, async ($, on) => {
+  const clock = engine(on)
+  const played = bangs(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  await $.agent.spawn({ prompt: 'fill' } as never)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', in: 'lash-backdrop' })
+  const all = await drawings(ui)
+  expect(all.some(svg => svg.includes('Выстрел'))).toBe(true)
+  const minis = all.filter(svg => svg.includes('Клодик работает'))
+  expect(minis.length).toBe(2)
+  for (const mini of minis) expect(mini).toContain('additive=\\"sum\\"')
+  await clock.advance(1000)
+  expect(played()).toBe(2)
+})
+
+test('in the terminal, the revolver fires at the minis and they hop', REVOLVER, async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Band
+  await ui.press({ key: 'whip' })
+  const text = JSON.stringify(await ui.findAll({ type: 'Text' }))
+  expect(text).toContain('⌐╦╦═─')
+  expect(text).toContain('💥')
 })

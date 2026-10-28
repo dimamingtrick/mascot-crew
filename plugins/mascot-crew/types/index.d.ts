@@ -31,6 +31,10 @@ export type Whip = 'none' | 'minis' | 'self'
 // `isStreak`: it came while the last one still hurt, so the pain runs on.
 // `from`: where the person clicked, in the drawing's units from the stage's
 // bottom-left, when it is known: a lash at the main mascot flies from there.
+// `weapon`: what punished them, the lasso when not set (a click from before
+// there was a choice). With the revolver: `hitX`, where the person's shot
+// lands under the main mascot's feet; `shots`, how many minis the main
+// mascot fires at.
 export type Lash = {
   n: number
   kind: 'minis' | 'self'
@@ -38,7 +42,13 @@ export type Lash = {
   at: number
   isStreak: boolean
   from?: { x: number; y: number }
+  weapon?: Weapon
+  hitX?: number
+  shots?: number
 }
+
+// The punishments a click picks from.
+export type Weapon = 'lasso' | 'gun'
 
 // What is open over a mini: its right-click menu, or its details card.
 export type Popup = { id: string; kind: 'menu' | 'details' } | null

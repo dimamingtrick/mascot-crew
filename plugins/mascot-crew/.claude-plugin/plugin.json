@@ -1,10 +1,23 @@
 {
   "name": "mascot-crew",
-  "version": "0.2.6",
-  "description": "Claude mascot works above the prompt in a random profession, hands tasks to mini Claudes for each subagent, takes a whip on click, and lets you stop or inspect each subagent.",
+  "version": "0.2.7",
+  "description": "Claude mascot works above the prompt in a random profession, hands tasks to mini Claudes for each subagent, takes a lasso or a revolver shot on click, and lets you stop or inspect each subagent.",
   "author": {
     "name": "dimamingtrick"
   },
   "license": "MIT",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "punishment": {
+      "type": "string",
+      "title": "Punishment",
+      "description": "What a click punishes with: random picks the lasso or the revolver each time; lasso or revolver pins one.",
+      "default": "random",
+      "options": [
+        "random",
+        "lasso",
+        "revolver"
+      ]
+    }
+  }
 }

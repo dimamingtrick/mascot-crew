@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, Elements, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Lash, Mini, Popup, Scene, Whip } from '../types'
+import type { Lash, Mini, Popup, Scene, Weapon, Whip } from '../types'
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
@@ -13,6 +13,7 @@ import {
   CALL_MS,
   FINISH_MS,
   WHIP_MS,
+  hopping,
   jobOf,
   jumpingDown,
   stageWidth,
@@ -30,6 +31,8 @@ import {
   shiftTime,
   speechBubble,
   saluting,
+  shotAt,
+  shotMs,
   termMain,
   termMini,
   waiting,
@@ -82,6 +85,12 @@ const pickJob = (...taken: number[]) => {
 
   return from[Math.floor(Math.random() * from.length)] ?? 0
 }
+
+// What a click punishes with: `random` picks the lasso or the revolver
+// afresh each time; the setting can pin one.
+let punishment = 'random'
+const pickWeapon = (): Weapon =>
+  punishment === 'lasso' ? 'lasso' : punishment === 'revolver' ? 'gun' : Math.random() < 0.5 ? 'lasso' : 'gun'
 
 let saluteTimer: Timer | undefined
 let exitTimer: Timer | undefined
@@ -201,8 +210,11 @@ function startFrames($: EngineInterface) {
 // The surface may load a drawing again on any redraw, which plays its
 // animation from the start: what has already happened is drawn as done.
 const WALK_IN_MS = 1100
-// A lash is drawn while it can still be seen: its crack and the pain after.
+// A lash is drawn while it can still be seen: its crack and the pain after;
+// a shot, while its last mini still hops.
 const LASH_FRESH_MS = PAIN_MS + 150
+const playsFor = (one: Lash) => (one.weapon === 'gun' ? shotMs(one.shots ?? 1) : WHIP_MS)
+const freshFor = (one: Lash) => (one.weapon === 'gun' ? shotMs(one.shots ?? 1) + 150 : LASH_FRESH_MS)
 
 // A redraw may load every drawing again; each is drawn as far into its
 // animation as it already got, so a redraw (a lash, a mini coming or going)
@@ -349,22 +361,37 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   const now = await read($, scene)
   const hasBusyMinis = now.minis.some(mini => !mini.isDone)
   // One click is one lash, drawn over the row as it stands; the actors'
-  // own drawings stay as they are.
+  // own drawings stay as they are (a shot makes them hop, nothing more).
   const kind: Lash['kind'] = hasBusyMinis && !isAtMain ? 'minis' : 'self'
+  const weapon = pickWeapon()
+  // The busy minis in sight, each shot at once.
+  const shots = kind === 'minis' ? shown(now).filter(mini => !mini.isDone).length : 1
   const at = await $.clock.now()
+  // Under the main mascot's feet, somewhere between its legs.
+  const hitX = Math.round(13 + Math.random() * 18)
+  const made: Lash = { n: 0, kind, row: rowOf(now), at, isStreak: false, weapon, shots }
   await update($, lash, last => ({
     n: last.n + 1,
     kind,
     row: rowOf(now),
     at,
-    isStreak: last.n > 0 && last.kind === kind && at - last.at < PAIN_MS,
+    isStreak:
+      last.n > 0 && last.kind === kind && (last.weapon ?? 'lasso') === weapon && at - last.at < PAIN_MS,
     ...(from === undefined ? {} : { from }),
+    weapon,
+    ...(weapon === 'gun' ? { hitX, shots } : {}),
   }))
   await update($, whip, () => kind)
-  void $.audio.play({ asset: 'sounds/whip.wav' }).catch(() => undefined)
+  if (weapon === 'gun') {
+    for (let k = 0; k < shots; k += 1) {
+      const bang = () => void $.audio.play({ asset: 'sounds/gunshot.wav' }).catch(() => undefined)
+      if (k === 0) bang()
+      else $.clock.after(Math.round((shotAt(k) - shotAt(0)) * 1000), bang)
+    }
+  } else void $.audio.play({ asset: 'sounds/whip.wav' }).catch(() => undefined)
   startFrames($)
   whipTimer?.cancel()
-  whipTimer = $.clock.after(WHIP_MS, () => {
+  whipTimer = $.clock.after(playsFor(made), () => {
     void update($, whip, () => 'none' as Whip)
   })
 }
@@ -614,7 +641,9 @@ function popupCard(
   )
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  punishment = String(options.punishment ?? 'random')
+
   on('session.start', async ($, e, next) => {
     await patchScene($, () => IDLE)
     await update($, popup, () => null)
@@ -874,11 +903,12 @@ export const register: Register = on => {
       startFrames($)
       const isOdd = (await read($, tick)) % 2 === 1
       const whipping = await read($, whip)
+      const isGun = whipping !== 'none' && (await read($, lash)).weapon === 'gun'
       const pose: TermPose =
         whipping === 'minis'
-          ? 'whip'
+          ? isGun ? 'shoot' : 'whip'
           : whipping === 'self'
-            ? 'ouch'
+            ? isGun ? 'hop' : 'ouch'
             : isWaiting
               ? 'wait'
               : now.isWorking
@@ -888,7 +918,7 @@ export const register: Register = on => {
         termMain(pose, job, isOdd),
         ...minis.map((mini, i) =>
           termMini(
-            mini.isDone ? 'salute' : whipping === 'minis' ? 'ouch' : 'work',
+            mini.isDone ? 'salute' : whipping === 'minis' ? (isGun ? 'hop' : 'ouch') : 'work',
             jobOf(mini.job),
             isOdd !== (i % 2 === 1),
           ),
@@ -924,9 +954,10 @@ export const register: Register = on => {
     // for the swing that the whip's own drawing shows.
     const lastLash = await read($, lash)
     const lashAtWait =
-      lastLash.n > 0 && lastLash.kind === 'minis' && at - lastLash.at < LASH_FRESH_MS
+      lastLash.n > 0 && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
         ? lastLash.at
         : undefined
+    const lashFor = lastLash.weapon === 'gun' ? shotMs(lastLash.shots ?? 1) / 1000 : undefined
     const drawn = now.leaveAt > 0
       ? { source: jumpingDown((at - now.leaveAt) / 1000, job), alt: 'Клод прыгает под инпут' }
       : isWaiting
@@ -937,7 +968,7 @@ export const register: Register = on => {
           }
         : {
             source: shiftTime(
-              waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000),
+              waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000, lashFor),
               (at - now.enterAt) / 1000,
             ),
             alt: 'Клод ждёт сабагентов и поглядывает на часы' }
@@ -945,14 +976,19 @@ export const register: Register = on => {
         ? { source: shiftTime(working(job), (at - now.enterAt) / 1000), alt: `Клод работает: ${job.name}` }
         : { source: saluting(job), alt: 'Клод отдаёт честь: всё готово' }
     const sinceEnter = at - now.enterAt
-    const main =
+    const last = await read($, lash)
+    const isFresh = last.n > 0 && last.row === rowOf(now) && at - last.at < freshFor(last)
+    // A fresh shot: when (in seconds of a drawing loaded now) shot `k` lands,
+    // making whoever it hit hop.
+    const isShot = isFresh && last.weapon === 'gun'
+    const hopAt = (k: number) => (last.at - at) / 1000 + shotAt(k)
+    const risen =
       now.leaveAt === 0 && sinceEnter < ENTER_MS
         ? { ...drawn, source: rising(drawn.source, sinceEnter / 1000) }
         : drawn
+    const main = isShot && last.kind === 'self' ? { ...risen, source: hopping(risen.source, hopAt(0)) } : risen
     const gap = gapOf(now, await read($, band))
     const stage = stageOf(now, gap)
-    const last = await read($, lash)
-    const isFresh = last.n > 0 && last.row === rowOf(now) && at - last.at < LASH_FRESH_MS
     const leavers = shown(now)
       .filter(mini => mini.isDone)
       .map(mini => ({
@@ -1034,10 +1070,16 @@ export const register: Register = on => {
             />
           </Box>
           {slots.map((mini, slot) => {
-            const drawn =
+            const plain =
               mini === undefined
                 ? { source: miniGone(), alt: 'Свободное место' }
                 : miniSvg(mini, jobOf(mini.job), at)
+            // Shot at in turn, left to right, the busy ones alone.
+            const shotK = slots.slice(0, slot).filter(one => one !== undefined && !one.isDone).length
+            const drawn =
+              isShot && last.kind === 'minis' && mini !== undefined && !mini.isDone
+                ? { ...plain, source: hopping(plain.source, hopAt(shotK), true) }
+                : plain
             const task = mini !== undefined && !mini.isDone ? mini.task : ''
 
             return (
@@ -1058,7 +1100,7 @@ export const register: Register = on => {
             // from a click beyond it: a picture is never squeezed into a
             // narrower box.
             <Box key="whip-fx" position="absolute" top={0} left={0} width={`${Math.ceil((fxW / width) * 100)}%`}>
-              <Svg source={fx} alt="Хлыст" width={fxW * SCALE} height={HEIGHT * SCALE} />
+              <Svg source={fx} alt={isShot ? 'Выстрел' : 'Хлыст'} width={fxW * SCALE} height={HEIGHT * SCALE} />
             </Box>
           )}
           {Client !== undefined && (

@@ -3,7 +3,11 @@
 A Claude Code mod: while a task runs, the Claude mascot works above the prompt in one of 50 professions. Each subagent climbs out as a mini Claude with a profession of its own, works beside it, then walks back, salutes and jumps under the prompt. 
 ## What you can do
 
-- **Click the mascot** to lash it from where you clicked; **click anywhere else on the band** to have it whip the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button.
+- **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each click picks a punishment at random:
+  - 🪢 **Lasso**: a lash and a 💥 over the head.
+  - 🔫 **Revolver**: a shot at the feet with a bang, a 💥 where the bullet lands, and a hop. At the minis the mascot fires once at each, left to right.
+
+  To always get one of them, set **Punishment** (`random`, `lasso` or `revolver`) in the plugin's options.
 - **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
 - **Click a mini** to open the crew pane: every subagent's task, model, status, time and recent steps.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
