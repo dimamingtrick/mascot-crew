@@ -391,6 +391,276 @@ export const JOBS: readonly Job[] = [
     dur: '0.35s',
     target: `<path d="M46 40 Q62 26 82 40Z" fill="#e0c18a"/><g fill="#fafafa" stroke="#bdbdbd" stroke-width="0.4"><rect x="57" y="33" width="12" height="2.5" rx="1"/><circle cx="57" cy="33" r="1.6"/><circle cx="57" cy="35.5" r="1.6"/><circle cx="69" cy="33" r="1.6"/><circle cx="69" cy="35.5" r="1.6"/></g><g fill="#e0c18a" opacity="0">${flash('0.35s')}<circle cx="52" cy="30" r="1.5"/><circle cx="55" cy="26" r="1"/><circle cx="50" cy="27" r="1"/></g>`,
   },
+  {
+    name: 'дворник',
+    emoji: '🧹',
+    prop: '🍂',
+    hat: '<path d="M9 9 Q10 0 20 0 Q30 0 31 9Z" fill="#e65100"/><rect x="9" y="7" width="22" height="2.5" fill="#bf360c"/><circle cx="20" cy="0" r="2.2" fill="#ffcc80"/><rect x="6" y="22" width="28" height="2" fill="#cddc39"/>',
+    tool: '<rect x="-0.8" y="-13" width="1.6" height="13" fill="#8b5a2b"/><path d="M-1.5 -13 h3 l3 -7 h-9Z" fill="#d4a24c"/><path d="M-3 -18 v2 M-1 -18 v2 M1 -18 v2 M3 -18 v2" stroke="#a07828" stroke-width="0.5"/>',
+    swing: '135;178;135',
+    dur: '0.6s',
+    target: `<path d="M64 40 Q73 30 82 40Z" fill="#d68a2e"/><g fill="#e67e22">${[0, 0.3]
+      .map(
+        begin =>
+          `<ellipse rx="2" ry="1" opacity="0"><set attributeName="opacity" to="1" begin="${begin}s"/><animateMotion path="M46 39 Q56 28 68 36" dur="0.6s" begin="${begin}s" repeatCount="indefinite"/></ellipse>`,
+      )
+      .join('')}</g><ellipse rx="2" ry="1" fill="#c0392b"><animateMotion path="M74 2 Q66 12 74 20 Q80 28 72 38" dur="2.4s" repeatCount="indefinite"/></ellipse><g fill="#c8b8a0" opacity="0">${flash('0.6s')}<circle cx="47" cy="37" r="1.2"/><circle cx="50" cy="35" r="0.9"/></g>`,
+  },
+  {
+    name: 'пчеловод',
+    emoji: '🐝',
+    prop: '🍯',
+    hat: '<ellipse cx="20" cy="7" rx="16" ry="2.5" fill="#f5f0dc"/><path d="M12 7 Q20 -3 28 7Z" fill="#ece4c6"/><path d="M5 8 L7 23 H33 L35 8Z" fill="#fff" fill-opacity="0.35" stroke="#c9c9c9" stroke-width="0.4"/>',
+    tool: `<rect x="-3" y="-12" width="6" height="9" rx="1" fill="#b0bec5"/><rect x="-1" y="-3" width="2" height="3" fill="#8b5a2b"/><path d="M-3 -12 l3 -4 l3 4Z" fill="#90a4ae"/><circle cx="0" cy="-19" r="2" fill="#eee">${blink('0.9;0.2;0.9', '0.8s')}</circle><circle cx="2" cy="-23" r="1.5" fill="#eee">${blink('0.2;0.9;0.2', '0.8s')}</circle>`,
+    swing: '55;80;55',
+    dur: '0.8s',
+    target: `<rect x="60" y="36" width="18" height="4" fill="#8b5a2b"/><rect x="61" y="22" width="16" height="14" fill="#f9a825"/><path d="M61 27 h16 M61 31.5 h16" stroke="#e08e0b" stroke-width="0.8"/><path d="M59 22 L69 15 L79 22Z" fill="#a1887f"/><rect x="66" y="33" width="5" height="2" fill="#5d4037"/><path d="M62 36 q1 3 2 0Z" fill="#ffb300"/>${[0, 0.55, 1.1]
+      .map(
+        begin =>
+          `<g opacity="0"><set attributeName="opacity" to="1" begin="${begin}s"/><animateMotion path="M68 34 Q46 22 56 12 Q66 4 72 14 Q76 24 68 34" dur="1.65s" begin="${begin}s" repeatCount="indefinite"/><circle r="1.6" fill="#ffd54a"/><rect x="-0.5" y="-1.6" width="1" height="3.2" fill="#333"/><ellipse cx="0" cy="-2" rx="1.2" ry="0.8" fill="#fff" opacity="0.8"/></g>`,
+      )
+      .join('')}`,
+  },
+  {
+    name: 'ковбой',
+    emoji: '🤠',
+    prop: '🐄',
+    hat: '<path d="M1 6 Q6 10 20 8 Q34 10 39 6 Q35 12 20 12 Q5 12 1 6Z" fill="#8d6e63"/><path d="M11 9 Q11 -1 16 1 Q20 3 24 1 Q29 -1 29 9Z" fill="#a1887f"/><rect x="11" y="6" width="18" height="1.5" fill="#5d4037"/>',
+    tool: '<rect x="-0.6" y="-9" width="1.2" height="9" fill="#c8a165"/><ellipse cx="0" cy="-14" rx="6" ry="4.5" fill="none" stroke="#c8a165" stroke-width="1.3"/>',
+    swing: '0;360',
+    dur: '0.6s',
+    target: `<g fill="#fff" stroke="#555" stroke-width="0.4"><rect x="60" y="33" width="2" height="7"/><rect x="64" y="33" width="2" height="7"/><rect x="71" y="33" width="2" height="7"/><rect x="75" y="33" width="2" height="7"/><rect x="58" y="24" width="20" height="10" rx="2"/></g><ellipse cx="64" cy="27" rx="3" ry="2" fill="#333"/><ellipse cx="72" cy="31" rx="2.5" ry="1.5" fill="#333"/><g>${rot('0 78 25;25 78 25;0 78 25', '1.2s')}<path d="M78 25 q3 5 1 10" stroke="#555" stroke-width="0.8" fill="none"/></g><path d="M52 20 l-2 -3 M58 20 l2 -3" stroke="#c8a165" stroke-width="1.2"/><rect x="51" y="19" width="8" height="8" rx="1.5" fill="#fff" stroke="#555" stroke-width="0.4"/><rect x="51" y="24" width="6" height="3.5" rx="1" fill="#f8bbd0"/><circle cx="54" cy="21.5" r="0.8" fill="#111"/><text x="63" y="21" font-size="5" fill="#8d6e63">Му!${blink('1;0;0;1', '2s')}</text>`,
+  },
+  {
+    name: 'рыцарь',
+    emoji: '⚔️',
+    prop: '🐉',
+    hat: '<path d="M7 11 Q7 -2 20 -2 Q33 -2 33 11Z" fill="#b0bec5" stroke="#78909c" stroke-width="0.6"/><rect x="7" y="9" width="26" height="2" fill="#78909c"/><path d="M20 -2 Q24 -10 31 -7 Q26 -6 22 -1Z" fill="#e53935"/>',
+    tool: '<rect x="-1" y="-4" width="2" height="4" fill="#5d4037"/><rect x="-4" y="-5.5" width="8" height="1.5" fill="#ffd54a"/><path d="M-1.2 -5.5 V-20 L0 -22 L1.2 -20 V-5.5Z" fill="#e0e0e0"/>',
+    swing: '-10;85;-10',
+    dur: '0.45s',
+    target: `<path d="M77 33 Q86 30 82 23" stroke="#43a047" stroke-width="2.5" fill="none"/><ellipse cx="70" cy="32" rx="9" ry="6" fill="#43a047"/><g fill="#388e3c"><rect x="64" y="36" width="3" height="4"/><rect x="73" y="36" width="3" height="4"/></g><g>${rot('0 70 27;-30 70 27;0 70 27', '0.6s')}<path d="M70 27 L75 13 L81 24Z" fill="#81c784"/></g><rect x="57" y="20" width="10" height="8" rx="2" fill="#4caf50"/><circle cx="60" cy="23" r="1.1" fill="#111"/><path d="M62 20 l1 -3 l1 3Z M65 20 l1 -3 l1 3Z" fill="#fdd835"/><g fill="#bdbdbd">${[0, 0.4]
+      .map(
+        begin =>
+          `<circle cx="57" cy="25" r="1.3"><animate attributeName="cy" values="25;12" dur="0.8s" begin="${begin}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="0.8s" begin="${begin}s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}</g>${sparks(55, 16, '0.45s')}`,
+  },
+  {
+    name: 'лучник',
+    emoji: '🏹',
+    prop: '🎯',
+    hat: '<path d="M6 9 Q13 -2 34 6 L34 9Z" fill="#2e7d32"/><path d="M26 5 Q33 -6 38 -4 Q32 0 28 6Z" fill="#e53935"/>',
+    tool: '<path d="M0 9 Q9 0 0 -9" stroke="#8b5a2b" stroke-width="1.6" fill="none"/><path d="M0 9 V-9" stroke="#eee" stroke-width="0.5"/>',
+    swing: '0;-6;0',
+    dur: '0.7s',
+    target: `<path d="M68 40 L72 30 L76 40" stroke="#8b5a2b" stroke-width="1.2" fill="none"/><circle cx="72" cy="24" r="8" fill="#fff" stroke="#999" stroke-width="0.4"/><circle cx="72" cy="24" r="6" fill="#e53935"/><circle cx="72" cy="24" r="4" fill="#fff"/><circle cx="72" cy="24" r="2" fill="#e53935"/><g stroke="#8b5a2b" stroke-width="0.8"><path d="M71 21 l-6 -2"/><path d="M73 26 l-6 2"/></g><g><animateMotion path="M46 25 L68 24" dur="0.7s" repeatCount="indefinite"/><rect x="-6" y="-0.4" width="8" height="0.8" fill="#8b5a2b"/><path d="M2 -1.5 L4.5 0 L2 1.5Z" fill="#9aa4ad"/><path d="M-6 0 l-2 -1.5 M-6 0 l-2 1.5" stroke="#e53935" stroke-width="0.8"/></g>`,
+  },
+  {
+    name: 'бармен',
+    emoji: '🍸',
+    prop: '🍋',
+    hat: '<path d="M7 9 Q8 3 20 3 Q32 3 33 9 Q24 6 7 9Z" fill="#212121"/><path d="M16 21.5 l4 1.5 l4 -1.5 v4 l-4 -1.5 l-4 1.5Z" fill="#c62828"/>',
+    tool: '<rect x="-2.5" y="-14" width="5" height="12" rx="1" fill="#cfd8dc" stroke="#90a4ae" stroke-width="0.5"/><rect x="-1.5" y="-17" width="3" height="3" rx="1" fill="#90a4ae"/><rect x="-2.5" y="-9" width="5" height="1.5" fill="#90a4ae"/>',
+    swing: '15;45;15',
+    dur: '0.25s',
+    target: `<rect x="48" y="33" width="32" height="7" fill="#6d4c41"/><rect x="48" y="33" width="32" height="1.5" fill="#8d6e63"/><path d="M64 27 L64 27 L64 27Z" fill="#ec407a"><animate attributeName="d" values="M64 27 L64 27 L64 27Z;M58.6 20.4 L69.4 20.4 L64 27Z;M58.6 20.4 L69.4 20.4 L64 27Z" keyTimes="0;0.7;1" dur="2.4s" repeatCount="indefinite"/></path><path d="M58 20 h12 l-6 7Z" fill="none" stroke="#b3e5fc" stroke-width="0.8"/><rect x="63.5" y="27" width="1" height="5" fill="#b3e5fc"/><rect x="61" y="32" width="6" height="1" fill="#b3e5fc"/><g opacity="0"><animate attributeName="opacity" values="0;1" keyTimes="0;0.75" calcMode="discrete" dur="2.4s" repeatCount="indefinite"/><path d="M68 20 q1 -4 3 -6" stroke="#4caf50" stroke-width="0.6" fill="none"/><circle cx="68" cy="19.5" r="1.6" fill="#e53935"/></g><path d="M75 33 v-10 h4 v10Z M76 23 v-4 h2 v4Z" fill="#2e7d32" opacity="0.8"/>`,
+  },
+  {
+    name: 'регулировщик',
+    emoji: '🚦',
+    prop: '🚗',
+    hat: '<path d="M9 7 Q10 0 20 0 Q30 0 31 7Z" fill="#1a237e"/><rect x="9" y="6" width="22" height="2" fill="#fff"/><path d="M14 8 h14 l-2 2.5 h-10Z" fill="#111"/><circle cx="20" cy="3" r="1.5" fill="#ffd54a"/>',
+    tool: '<rect x="-1.2" y="-16" width="2.4" height="16" fill="#fff" stroke="#999" stroke-width="0.3"/><g fill="#212121"><rect x="-1.2" y="-14" width="2.4" height="3"/><rect x="-1.2" y="-8" width="2.4" height="3"/></g>',
+    swing: '30;90;90;30',
+    dur: '1.6s',
+    target: `<rect x="79" y="20" width="2" height="20" fill="#555"/><rect x="76" y="4" width="8" height="17" rx="1.5" fill="#263238"/>${[
+      { y: 8, fill: '#e53935', values: '1;0.15;0.15' },
+      { y: 12.5, fill: '#fdd835', values: '0.15;1;0.15' },
+      { y: 17, fill: '#43a047', values: '0.15;0.15;1' },
+    ]
+      .map(
+        ({ y, fill, values }) =>
+          `<circle cx="80" cy="${y}" r="1.8" fill="${fill}"><animate attributeName="opacity" values="${values}" keyTimes="0;0.4;0.5" calcMode="discrete" dur="3s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}<rect x="44" y="39" width="40" height="1" fill="#9e9e9e"/><g>${move('52,38;52,38;74,38', '3s', 'keyTimes="0;0.5;1" repeatCount="indefinite"')}<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="3s" repeatCount="indefinite"/><rect x="-8" y="-5" width="16" height="5" rx="1.5" fill="#1e88e5"/><rect x="-5" y="-8.5" width="9" height="4" rx="1" fill="#90caf9"/><circle cx="-4.5" cy="0" r="1.8" fill="#222"/><circle cx="4.5" cy="0" r="1.8" fill="#222"/></g>`,
+  },
+  {
+    name: 'водолаз',
+    emoji: '🤿',
+    prop: '🐠',
+    hat: '<rect x="9" y="11" width="22" height="9" rx="3" fill="#4fc3f7" fill-opacity="0.35" stroke="#0277bd" stroke-width="1.4"/><rect x="6" y="13" width="3" height="2.5" fill="#0277bd"/><path d="M33 20 V3 h3" stroke="#ff7043" stroke-width="2" fill="none"/>',
+    tool: '<rect x="-1.8" y="-10" width="3.6" height="10" rx="1" fill="#ffca28"/><rect x="-2.5" y="-13" width="5" height="3" fill="#ffb300"/><path d="M-2.5 -13 L-6 -22 H6 L2.5 -13Z" fill="#fff59d" opacity="0.45"/>',
+    swing: '60;100;100;60',
+    dur: '1.6s',
+    target: `<rect x="44" y="2" width="40" height="38" fill="#4fc3f7" opacity="0.18"/><path d="M80 40 q-3 -6 0 -12 q3 -6 0 -12" stroke="#43a047" stroke-width="1.5" fill="none">${rot('-6 80 40;6 80 40;-6 80 40', '2s')}</path><rect x="60" y="32" width="12" height="8" fill="#8d5524"/><path d="M60 32 q6 -5 12 0Z" fill="#a0632d"/><rect x="65" y="33" width="2.5" height="3" fill="#ffd54a"/><g fill="#fff59d" opacity="0">${flash('1.6s')}<circle cx="63" cy="28" r="0.9"/><circle cx="70" cy="27" r="0.7"/></g><g>${move('0,0;12,-3;0,0', '3s')}<path d="M52 16 q4 -3 8 0 q-4 3 -8 0 M60 16 l3 -2 v4Z" fill="#ff7043"/></g><g fill="none" stroke="#e1f5fe" stroke-width="0.6">${[0, 0.6, 1.2]
+      .map(
+        begin =>
+          `<circle cx="${70 + begin * 3}" cy="30" r="1.2"><animate attributeName="cy" values="30;2" dur="1.8s" begin="${begin}s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}</g>`,
+  },
+  {
+    name: 'альпинист',
+    emoji: '🧗',
+    prop: '🏔️',
+    hat: `${dome('#ff5722')}<rect x="8" y="7" width="24" height="2" fill="#bf360c"/><g fill="#90caf9" stroke="#37474f" stroke-width="0.8"><circle cx="15" cy="4" r="2.2"/><circle cx="25" cy="4" r="2.2"/></g>`,
+    tool: `${HANDLE}<path d="M-8 -14 Q0 -19 6 -16 L6 -15 Q0 -17 -6 -13Z" fill="#78909c"/><rect x="5" y="-18" width="3" height="4" fill="#78909c"/>`,
+    swing: '-15;72;-15',
+    dur: '0.5s',
+    target: `<path d="M50 40 L65 8 L82 40Z" fill="#78909c"/><path d="M59.4 20 L65 8 L70.6 20 L67.5 18 L65 21 L62.5 18Z" fill="#fff"/><path d="M58 26 l4 -3 M70 30 l5 4" stroke="#607d8b" stroke-width="0.8"/><rect x="64.5" y="-1" width="1" height="10" fill="#555"/><path d="M65.5 -1 h7 l-2 2 l2 2 h-7Z" fill="#e53935">${rot('0 65.5 1;-10 65.5 1;0 65.5 1', '0.8s')}</path><g fill="#fff" opacity="0">${flash('0.5s')}<rect x="54" y="24" width="1.5" height="1.5"/><rect x="51" y="21" width="1.2" height="1.2"/><rect x="56" y="20" width="1" height="1"/></g>`,
+  },
+  {
+    name: 'часовщик',
+    emoji: '⌚',
+    prop: '🕰️',
+    hat: '<rect x="6" y="6" width="28" height="2" fill="#5d4037"/><circle cx="25.5" cy="16" r="4.5" fill="#bde0fe" fill-opacity="0.5" stroke="#212121" stroke-width="1.5"/><rect x="29" y="14.5" width="5" height="3" fill="#212121"/>',
+    tool: '<rect x="-1.5" y="-7" width="3" height="7" rx="1" fill="#1e88e5"/><rect x="-0.4" y="-15" width="0.8" height="8" fill="#9aa4ad"/>',
+    swing: '80;95;80',
+    dur: '0.6s',
+    target: `<rect x="62" y="31" width="10" height="9" fill="#8d6e63"/><circle cx="67" cy="19" r="11" fill="#fff8e1" stroke="#8d6e63" stroke-width="2"/><g fill="#5d4037"><rect x="66.5" y="9.5" width="1" height="2"/><rect x="66.5" y="26.5" width="1" height="2"/><rect x="57.5" y="18.5" width="2" height="1"/><rect x="74.5" y="18.5" width="2" height="1"/></g><g>${rot('0 67 19;360 67 19', '24s')}<rect x="66.3" y="13" width="1.4" height="6" fill="#212121"/></g><g>${rot('0 67 19;360 67 19', '2s')}<rect x="66.5" y="10.5" width="1" height="8.5" fill="#212121"/></g><circle cx="67" cy="19" r="1.2" fill="#c62828"/>${[
+      { x: 54, values: '0 54 36;360 54 36' },
+      { x: 60, values: '360 60 36;0 60 36' },
+    ]
+      .map(
+        ({ x, values }) =>
+          `<circle cx="${x}" cy="36" r="3" fill="none" stroke="#ffb300" stroke-width="2.4" stroke-dasharray="1.6 1.2">${rot(values, '1.5s')}</circle>`,
+      )
+      .join('')}`,
+  },
+  {
+    name: 'портной',
+    emoji: '🧵',
+    prop: '👔',
+    hat: '<ellipse cx="20" cy="7" rx="6" ry="3" fill="#e53935"/><path d="M17 6 l-1 -3 M20 5 v-3.5 M23 6 l1 -3" stroke="#9aa4ad" stroke-width="0.6"/><g fill="#ffd54a"><circle cx="16" cy="3" r="0.8"/><circle cx="20" cy="1.5" r="0.8"/><circle cx="24" cy="3" r="0.8"/></g><path d="M8 20 Q20 27 32 20" stroke="#fdd835" stroke-width="1.8" fill="none"/><path d="M8.5 20 v6 M31.5 20 v5" stroke="#fdd835" stroke-width="1.8"/>',
+    tool: '<rect x="-0.5" y="-15" width="1" height="13" fill="#cfd8dc"/><path d="M0 -13 Q7 -5 2 4" stroke="#e53935" stroke-width="0.6" fill="none"/>',
+    swing: '60;110;60',
+    dur: '0.5s',
+    target: `<rect x="65" y="32" width="2" height="8" fill="#8b5a2b"/><rect x="60" y="38.5" width="12" height="1.5" fill="#8b5a2b"/><circle cx="66" cy="9" r="2.2" fill="#8b5a2b"/><path d="M57 12 Q66 9 75 12 L73 32 H59Z" fill="#7e57c2"/><path d="M66 11 v21" stroke="#5e35b1" stroke-width="0.6"/>${[18, 25]
+      .map(
+        (y, i) =>
+          `<line x1="58" y1="${y}" x2="58" y2="${y}" stroke="#fff" stroke-width="0.8" stroke-dasharray="1.5 1.2"><animate attributeName="x2" values="58;74;74" keyTimes="0;0.8;1" dur="2s" begin="${i}s" repeatCount="indefinite"/></line>`,
+      )
+      .join('')}`,
+  },
+  {
+    name: 'гончар',
+    emoji: '🏺',
+    prop: '🌀',
+    hat: '<path d="M7 9 Q8 1 20 2 Q32 1 33 9Z" fill="#a1887f"/><path d="M33 7 l5 2 l-1 3 l-4 -2Z" fill="#a1887f"/><g fill="#8d6e63"><rect x="12" y="21" width="2" height="2"/><rect x="27" y="20" width="2" height="2"/></g>',
+    tool: `<rect x="-1.5" y="-9" width="3" height="9" fill="${O}"/><rect x="-1.5" y="-9" width="3" height="2.5" fill="#a1887f"/>`,
+    swing: '80;92;80',
+    dur: '0.5s',
+    target: `<rect x="44" y="34" width="24" height="6" fill="#6d4c41"/><ellipse cx="56" cy="33" rx="11" ry="2" fill="#8d6e63"/><rect x="50" y="32" width="1.5" height="2" fill="#5d4037"><animate attributeName="x" values="46;65;46" dur="0.4s" repeatCount="indefinite"/></rect><path d="M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z" fill="#c1693c"><animate attributeName="d" values="M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z;M50 33 Q46 27 54 18 L58 18 Q66 27 62 33Z;M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z" dur="2s" repeatCount="indefinite"/></path><path d="M52 27 h8" stroke="#a0522d" stroke-width="0.6"/><path d="M74 40 q-3 -6 1 -10 h4 q4 4 1 10Z" fill="#c1693c"/><rect x="74.5" y="28" width="5" height="2" fill="#a0522d"/>`,
+  },
+  {
+    name: 'жонглёр',
+    emoji: '🤹',
+    prop: '🎪',
+    hat: '<path d="M8 9 L3 -4 L15 5 L20 -6 L25 5 L37 -4 L32 9Z" fill="#8e24aa"/><path d="M20 -6 L25 5 L20 7 L15 5Z" fill="#fdd835"/><g fill="#fdd835"><circle cx="3" cy="-4" r="1.6"/><circle cx="20" cy="-6" r="1.6"/><circle cx="37" cy="-4" r="1.6"/></g>',
+    tool: `<rect x="-1.5" y="-5" width="3" height="5" fill="${O}"/><circle cx="0" cy="-7" r="2.5" fill="#e53935"/>`,
+    swing: '70;110;70',
+    dur: '0.4s',
+    target: `<rect x="62" y="30" width="16" height="10" fill="#e53935"/><rect x="62" y="30" width="16" height="2" fill="#fdd835"/><path d="M66 32 v8 M70 32 v8 M74 32 v8" stroke="#fff" stroke-width="1.2"/>${[
+      { fill: '#42a5f5', begin: 0 },
+      { fill: '#66bb6a', begin: 0.4 },
+      { fill: '#ffd54a', begin: 0.8 },
+    ]
+      .map(
+        ({ fill, begin }) =>
+          `<circle r="2.2" fill="${fill}" opacity="0"><set attributeName="opacity" to="1" begin="${begin}s"/><animateMotion path="M42 22 Q56 -10 70 22 Q56 30 42 22" dur="1.2s" begin="${begin}s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}`,
+  },
+  {
+    name: 'энтомолог',
+    emoji: '🦋',
+    prop: '🌸',
+    hat: '<rect x="7" y="7" width="26" height="2" fill="#43a047"/><path d="M14 8 Q11 0 8 -2 M26 8 Q29 0 32 -2" stroke="#212121" stroke-width="0.8" fill="none"/><circle cx="8" cy="-2" r="1.5" fill="#212121"/><circle cx="32" cy="-2" r="1.5" fill="#212121"/>',
+    tool: '<rect x="-0.6" y="-15" width="1.2" height="15" fill="#8b5a2b"/><path d="M-4.5 -19 A4.5 4.5 0 0 1 4.5 -19 Q3 -10 0 -12 Q-3 -10 -4.5 -19Z" fill="#fff" fill-opacity="0.55" stroke="#9aa4ad" stroke-width="0.8"/>',
+    swing: '20;85;20',
+    dur: '0.9s',
+    target: `<rect x="69" y="30" width="1.5" height="10" fill="#4caf50"/><path d="M70 36 q-5 -3 -6 1 M70 34 q5 -3 6 1" stroke="#4caf50" stroke-width="1" fill="none"/><g fill="#f48fb1"><circle cx="70" cy="27" r="2"/><circle cx="67" cy="29.5" r="2"/><circle cx="73" cy="29.5" r="2"/><circle cx="68" cy="32.5" r="2"/><circle cx="72" cy="32.5" r="2"/></g><circle cx="70" cy="30" r="1.5" fill="#ffd54a"/><g><animateMotion path="M62 14 Q72 2 78 14 Q74 24 66 20 Q56 18 62 14" dur="2.6s" repeatCount="indefinite"/><g><animateTransform attributeName="transform" type="scale" values="1 1;0.25 1;1 1" dur="0.2s" repeatCount="indefinite"/><path d="M0 0 L-3.5 -3 L-3 2Z M0 0 L3.5 -3 L3 2Z" fill="#ff7043"/></g><rect x="-0.4" y="-2" width="0.8" height="4" fill="#333"/></g>`,
+  },
+  {
+    name: 'боксёр',
+    emoji: '🥊',
+    prop: '💪',
+    hat: '<rect x="6" y="8" width="28" height="3" fill="#e53935"/><path d="M6 9 l-4 3 l1 2 l4 -3Z M6 10 l-2 5 l2 1 l1 -5Z" fill="#e53935"/>',
+    tool: '<rect x="-1.5" y="-3" width="3" height="3" fill="#fff"/><rect x="-4" y="-11" width="8" height="8" rx="3" fill="#e53935"/><rect x="-4" y="-5" width="8" height="1.5" fill="#fff"/>',
+    swing: '50;92;50',
+    dur: '0.35s',
+    target: `<rect x="77" y="0" width="5" height="2" fill="#555"/><rect x="58" y="0" width="22" height="1.5" fill="#555"/><rect x="58.5" y="1.5" width="1" height="6" fill="#555"/><g><animateTransform attributeName="transform" type="rotate" values="0 59 1;0 59 1;-14 59 1;0 59 1" keyTimes="0;${STRIKE};0.5;1" dur="0.35s" repeatCount="indefinite"/><rect x="53" y="7.5" width="12" height="24" rx="4" fill="#c62828"/><rect x="53" y="12" width="12" height="2" fill="#8e0000"/><rect x="53" y="26" width="12" height="2" fill="#8e0000"/></g><rect x="48" y="39" width="30" height="1" fill="#9e9e9e"/>${sparks(52, 20, '0.35s')}`,
+  },
+  {
+    name: 'шахматист',
+    emoji: '♟️',
+    prop: '👑',
+    hat: '<path d="M9 8 Q10 2 20 2 Q30 2 31 8Z" fill="#455a64"/><path d="M28 7 h8 l-2 2 h-6Z" fill="#37474f"/><g fill="none" stroke="#212121" stroke-width="0.9"><circle cx="14.5" cy="16" r="3.5"/><circle cx="25.5" cy="16" r="3.5"/><path d="M18 16 h4"/></g>',
+    tool: '<g fill="#263238" stroke="#90a4ae" stroke-width="0.4"><rect x="-3" y="-2" width="6" height="2"/><path d="M-2 -2 L-1 -7 H1 L2 -2Z"/><circle cx="0" cy="-8.5" r="2"/></g>',
+    swing: '60;100;100;60',
+    dur: '1.6s',
+    target: `<rect x="48" y="33" width="32" height="7" fill="#8b5a2b"/><path d="M50 40 v-1 M78 40 v-1" stroke="#5d4037"/>${[0, 1, 2, 3, 4, 5, 6, 7]
+      .map(i => `<rect x="${48 + i * 4}" y="31" width="4" height="2" fill="${i % 2 ? '#5d4037' : '#efebe9'}"/>`)
+      .join('')}<g fill="#fafafa" stroke="#757575" stroke-width="0.4"><rect x="71" y="29" width="6" height="2"/><path d="M72 29 L73 21 H75 L76 29Z"/><path d="M74 17 v4 M72.5 18.5 h3" stroke-width="0.9"/></g><g>${move('0,0;0,0;4,-6;8,0;8,0', '2.4s', 'keyTimes="0;0.4;0.5;0.6;1" repeatCount="indefinite"')}<g fill="#263238" stroke="#90a4ae" stroke-width="0.4"><rect x="51" y="29" width="5" height="2"/><path d="M52 29 L53 25 H54 L55 29Z"/><circle cx="53.5" cy="24" r="1.6"/></g></g>`,
+  },
+  {
+    name: 'барабанщик',
+    emoji: '🥁',
+    prop: '🔊',
+    hat: '<path d="M8 9 Q9 2 20 2 Q31 2 32 9Z" fill="#1565c0"/><g fill="#fff"><circle cx="15" cy="5" r="0.8"/><circle cx="21" cy="4" r="0.8"/><circle cx="26" cy="6" r="0.8"/></g><path d="M8 8 l-5 1 l1 3Z M8 8 l-3 4 h3Z" fill="#1565c0"/>',
+    tool: '<rect x="-0.8" y="-16" width="1.6" height="16" fill="#d7a86e"/><circle cx="0" cy="-16" r="1.2" fill="#d7a86e"/>',
+    swing: '20;115;20',
+    dur: '0.3s',
+    target: `<rect x="50" y="30" width="20" height="10" fill="#e53935"/><path d="M50 32 L55 38 L60 32 L65 38 L70 32" stroke="#ffd54a" stroke-width="0.8" fill="none"/><ellipse cx="60" cy="30" rx="10" ry="2" fill="#f5f5f5" stroke="#bbb" stroke-width="0.4"/><rect x="77" y="18" width="1" height="22" fill="#9e9e9e"/><path d="M74 40 l3.5 -4 l3.5 4" stroke="#9e9e9e" stroke-width="0.8" fill="none"/><ellipse cx="77.5" cy="18" rx="6" ry="1.2" fill="#fbc02d">${rot('-8 77.5 18;8 77.5 18;-8 77.5 18', '0.3s')}</ellipse><g stroke="#ffd54a" stroke-width="0.8" fill="none" opacity="0">${flash('0.3s')}<path d="M54 24 q3 -3 6 0"/><path d="M52 21 q5 -5 10 0"/></g>`,
+  },
+  {
+    name: 'грибник',
+    emoji: '🍄',
+    prop: '🧺',
+    hat: '<path d="M4 9 Q6 -4 20 -4 Q34 -4 36 9Z" fill="#e53935"/><g fill="#fff"><circle cx="12" cy="3" r="1.8"/><circle cx="22" cy="-1" r="1.5"/><circle cx="29" cy="4" r="1.8"/><circle cx="18" cy="5" r="1"/></g>',
+    tool: '<rect x="-1" y="-6" width="2" height="6" fill="#8b5a2b"/><path d="M-1 -6 L-1 -14 Q2.5 -10 1 -6Z" fill="#cfd8dc"/>',
+    swing: '110;150;110',
+    dur: '0.6s',
+    target: `<path d="M44 40 Q50 37 56 40 Q62 37 68 40" fill="#7cb342"/>${[
+      { x: 50, begin: 0, cap: '#8d6e63' },
+      { x: 58, begin: 0.8, cap: '#e53935' },
+    ]
+      .map(
+        ({ x, begin, cap }) =>
+          `<g transform="translate(${x},40)"><g><animateTransform attributeName="transform" type="scale" values="0.2;1;1;0.2" keyTimes="0;0.25;0.85;1" dur="1.6s" begin="${begin}s" repeatCount="indefinite"/><rect x="-1.2" y="-5" width="2.4" height="5" fill="#f5f0dc"/><path d="M-4 -5 Q0 -11 4 -5Z" fill="${cap}"/></g></g>`,
+      )
+      .join('')}<path d="M70 32 h12 l-2 8 h-8Z" fill="#c8a165"/><path d="M72 32 Q76 22 80 32" stroke="#8b5a2b" stroke-width="1" fill="none"/><path d="M71 35 h10 M71.5 37.5 h9" stroke="#a1887f" stroke-width="0.5"/><g><path d="M73 32 Q75 27 77 32Z" fill="#8d6e63"/><path d="M76 32 Q78.5 28 81 32Z" fill="#e53935"/></g>`,
+  },
+  {
+    name: 'стеклодув',
+    emoji: '🔮',
+    prop: '✨',
+    hat: '<rect x="6" y="5" width="28" height="3" fill="#5d4037"/><g fill="#ffb74d" fill-opacity="0.75" stroke="#3e2723" stroke-width="1"><rect x="11" y="2.5" width="7" height="5" rx="2"/><rect x="22" y="2.5" width="7" height="5" rx="2"/></g>',
+    tool: '<rect x="-0.7" y="-22" width="1.4" height="22" fill="#78909c"/><rect x="-1.2" y="-3" width="2.4" height="3" fill="#5d4037"/>',
+    swing: '87;93;87',
+    dur: '1.5s',
+    target: `<rect x="72" y="16" width="12" height="24" fill="#6d4c41"/><rect x="71" y="14" width="14" height="3" fill="#4e342e"/><path d="M74 40 v-10 q4 -5 8 0 v10Z" fill="#ff6f00">${blink('1;0.7;1', '0.4s')}</path><circle cx="65" cy="25" r="3" fill="#ffb300"><animate attributeName="r" values="2.5;6;2.5" dur="3s" repeatCount="indefinite"/><animate attributeName="fill" values="#fff176;#ff7043;#fff176" dur="3s" repeatCount="indefinite"/></circle><circle cx="63" cy="23" r="1" fill="#fff" opacity="0.8"/>`,
+  },
+  {
+    name: 'мороженщик',
+    emoji: '🍦',
+    prop: '🍨',
+    hat: '<path d="M9 9 L12 2 H28 L31 9Z" fill="#fff" stroke="#ddd" stroke-width="0.5"/><rect x="11" y="4.5" width="18" height="1.5" fill="#f06292"/>',
+    tool: '<rect x="-1" y="-11" width="2" height="11" fill="#b0bec5"/><path d="M-3.5 -11 Q0 -17 3.5 -11Z" fill="#b0bec5"/><circle cx="0" cy="-13" r="2.5" fill="#f8bbd0"/>',
+    swing: '40;100;40',
+    dur: '0.7s',
+    target: `<rect x="76" y="10" width="1" height="30" fill="#9e9e9e"/><path d="M69 12 Q76.5 2 84 12Z" fill="#f06292"/><path d="M69 12 Q72.5 9 76.5 12 Q80 9 84 12" fill="#fff" opacity="0.6"/><rect x="56" y="38" width="12" height="2" fill="#90a4ae"/><path d="M57 28 H67 L62 39Z" fill="#d7a86e"/><path d="M58.5 30 l6 6 M61 29 l4 4 M65.5 30 l-6 6 M63 29 l-4 4" stroke="#b07d3c" stroke-width="0.5"/>${[
+      { y: 26, fill: '#f8bbd0', at: 0.05 },
+      { y: 21.5, fill: '#fff3e0', at: 0.25 },
+      { y: 17, fill: '#8d6e63', at: 0.5 },
+    ]
+      .map(
+        ({ y, fill, at }) =>
+          `<circle cx="62" cy="${y}" r="4" fill="${fill}" opacity="0"><animate attributeName="opacity" values="0;1" keyTimes="0;${at}" calcMode="discrete" dur="2.8s" repeatCount="indefinite"/></circle>`,
+      )
+      .join('')}<circle cx="62.5" cy="12" r="1.5" fill="#e53935" opacity="0"><animate attributeName="opacity" values="0;1" keyTimes="0;0.75" calcMode="discrete" dur="2.8s" repeatCount="indefinite"/></circle>`,
+  },
 ]
 
 type Pose = {

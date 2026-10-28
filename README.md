@@ -1,6 +1,6 @@
 # mascot-crew
 
-A Claude Code mod: while a task runs, the Claude mascot works above the prompt in one of 30 professions. Each subagent climbs out as a mini Claude with a profession of its own, works beside it, then walks back, salutes and jumps under the prompt. 
+A Claude Code mod: while a task runs, the Claude mascot works above the prompt in one of 50 professions. Each subagent climbs out as a mini Claude with a profession of its own, works beside it, then walks back, salutes and jumps under the prompt. 
 ## What you can do
 
 - **Click the mascot** to lash it from where you clicked; **click anywhere else on the band** to have it whip the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button.
