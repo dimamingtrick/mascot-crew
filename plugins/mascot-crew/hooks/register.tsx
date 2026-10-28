@@ -145,8 +145,13 @@ const modelName = (model: string) => {
   return `${name} ${version[1]}${version[2] === undefined ? '' : `.${version[2]}`}`
 }
 
-// What a mini's bubble says: its model, then what it is doing now.
-const bubbleText = (mini: Mini) => (mini.model === '' ? mini.task : `${mini.model}: ${mini.task}`)
+// What a mini's bubble says: its model, then the task it was given (what it
+// is doing now when it was given none). Its steps are in the crew pane.
+const bubbleText = (mini: Mini) => {
+  const task = mini.given || mini.task
+
+  return mini.model === '' || task === '' ? task : `${mini.model}: ${task}`
+}
 
 const newMini = (s: Scene, id: string, at: number, task = '', type = '', model = ''): Mini => ({
   id,
@@ -1095,7 +1100,7 @@ export const register: Register = on => {
               )}
               {slots.map((mini, slot) => {
                 const busy = mini !== undefined && !mini.isDone ? mini : undefined
-                const bubble = busy !== undefined && busy.task !== '' ? speechBubble(bubbleText(busy)) : undefined
+                const bubble = busy !== undefined && bubbleText(busy) !== '' ? speechBubble(bubbleText(busy)) : undefined
 
                 // Hovering a working mini's region shows its bubble over its
                 // head. The bubble sits in a placed layer that is always

@@ -193,13 +193,15 @@ test('every mini on stage has a profession of its own', async ($, on) => {
   await ui.unmount()
 })
 
-test('the hover shows what the subagent is doing now', async ($, on) => {
+test('the hover keeps the task given while the subagent calls tools', async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   await $.agent.spawn({ prompt: 'dig', description: 'Тестовый сабагент' } as never)
   await $.tool.call({ tool: 'Bash', command: 'sleep 95', description: 'Wait for 95 seconds', agentId: 'mini-1' } as never)
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
-  expect(JSON.stringify(await ui.findAll({ type: 'Svg' }))).toContain('Клодик говорит: Haiku: Wait for 95 seconds')
+  const drawn = JSON.stringify(await ui.findAll({ type: 'Svg' }))
+  expect(drawn).toContain('Клодик говорит: Haiku: Тестовый сабагент')
+  expect(drawn).not.toContain('Клодик говорит: Haiku: Wait for 95 seconds')
   await ui.unmount()
 })
 

@@ -4,7 +4,7 @@ A Claude Code mod: while a task runs, the Claude mascot works above the prompt i
 ## What you can do
 
 - **Click the mascot** to lash it from where you clicked; **click anywhere else on the band** to have it whip the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button.
-- **Hover a mini** to see its model and what it is doing now (`Sonnet 5.5: Wait for 20 seconds`).
+- **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
 - **Click a mini** to open the crew pane: every subagent's task, model, status, time and recent steps.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
 

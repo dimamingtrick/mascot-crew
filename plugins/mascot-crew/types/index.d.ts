@@ -12,10 +12,10 @@ export type Mini = {
   // Its place in the row, kept while others come and go.
   slot: number
   // What its subagent is doing now (its latest tool call's description, at
-  // first the task it was given), shown on hover.
+  // first the task it was given), shown in its card.
   task: string
-  // The task it was given, its agent type, how many tools it has called and
-  // what it did last (newest first): its details card.
+  // The task it was given (shown on hover and in its card), its agent type,
+  // how many tools it has called and what it did last (newest first).
   given: string
   type: string
   // The model its subagent runs on, as people name it (`Sonnet 5.5`).
