@@ -62,6 +62,13 @@ const NO_LASH: Lash = { n: 0, kind: 'self', row: '', at: 0, isStreak: false }
 const lash = atom({ plugin: 'mascot-crew', key: 'lash' } as const, NO_LASH)
 // The right-click menu or the details card open over one mini, if any.
 const popup = atom({ plugin: 'mascot-crew', key: 'popup' } as const, null as Popup)
+// The weapons still to come before the bag is shuffled again, and the one
+// this run punishes with (null until its first click).
+const weapons = atom({ plugin: 'mascot-crew', key: 'weapons' } as const, [] as Weapon[])
+const ARMED = { plugin: 'mascot-crew', key: 'armed' } as const
+const armed = atom(ARMED, null as Weapon | null)
+// Set outright: nothing else writes it, and it never builds on its last value.
+const arm = ($: EngineInterface, weapon: Weapon | null) => $.state.set(ARMED, weapon)
 
 const SALUTE_MS = 4000
 const FRAME_MS = 300
@@ -86,11 +93,17 @@ const pickJob = (...taken: number[]) => {
   return from[Math.floor(Math.random() * from.length)] ?? 0
 }
 
-// What a click punishes with: `random` picks the lasso or the revolver
-// afresh each time; the setting can pin one.
-let punishment = 'random'
-const pickWeapon = (): Weapon =>
-  punishment === 'lasso' ? 'lasso' : punishment === 'revolver' ? 'gun' : Math.random() < 0.5 ? 'lasso' : 'gun'
+// What the clicks of one run punish with: drawn at its first click from a
+// shuffled bag of every weapon, so each comes up as often as the others, and
+// kept until the mascot leaves.
+const WEAPONS: Weapon[] = ['lasso', 'gun']
+const pickWeapon = async ($: EngineInterface): Promise<Weapon> => {
+  const left = await read($, weapons)
+  const bag = left.length > 0 ? left : [...WEAPONS].sort(() => Math.random() - 0.5)
+  await update($, weapons, () => bag.slice(1))
+
+  return bag[0] ?? 'lasso'
+}
 
 let saluteTimer: Timer | undefined
 let exitTimer: Timer | undefined
@@ -363,7 +376,9 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   // One click is one lash, drawn over the row as it stands; the actors'
   // own drawings stay as they are (a shot makes them hop, nothing more).
   const kind: Lash['kind'] = hasBusyMinis && !isAtMain ? 'minis' : 'self'
-  const weapon = pickWeapon()
+  const held = await read($, armed)
+  const weapon = held ?? (await pickWeapon($))
+  if (held === null) await arm($, weapon)
   // The busy minis in sight, each shot at once.
   const shots = kind === 'minis' ? shown(now).filter(mini => !mini.isDone).length : 1
   const at = await $.clock.now()
@@ -641,12 +656,12 @@ function popupCard(
   )
 }
 
-export const register: Register = (on, options) => {
-  punishment = String(options.punishment ?? 'random')
+export const register: Register = on => {
 
   on('session.start', async ($, e, next) => {
     await patchScene($, () => IDLE)
     await update($, popup, () => null)
+    await arm($, null)
 
     return next(e)
   })
@@ -656,6 +671,9 @@ export const register: Register = (on, options) => {
     exitTimer?.cancel()
     const at = await $.clock.now()
     turnStartedAt = at
+    // A new run picks its weapon afresh.
+    const before = await read($, scene)
+    if (!isOnStage(before) || before.leaveAt > 0) await arm($, null)
     // Off stage (or on its way down), it jumps back up from under the prompt,
     // and only then takes up a new profession: one task keeps one.
     await patchScene($, s => {

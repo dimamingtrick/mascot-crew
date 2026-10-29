@@ -34,9 +34,11 @@ const lash = (ui: Drawing, surface: 'terminal' | 'desktop') =>
     ? ui.press({ key: 'whip' })
     : ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'lash' })
 
-// A click punishes at random; these pin the lasso or the revolver.
-const LASSO = { options: { punishment: 'lasso' } }
-const REVOLVER = { options: { punishment: 'revolver' } }
+// A run punishes with a weapon picked at random; this arms it with one.
+const pin = (on: On, weapon: 'lasso' | 'gun') =>
+  on('state.get', { plugin: 'mascot-crew', key: 'armed' }, () => ({
+    value: { value: weapon, version: 1 },
+  }))
 
 const toasts: string[] = []
 const stopped: string[] = []
@@ -143,7 +145,8 @@ test('a mini stays while its subagent waits on background work', async ($, on) =
   await ui.unmount()
 })
 
-test('one click is one lash, drawn once and never again on a redraw', LASSO, async ($, on) => {
+test('one click is one lash, drawn once and never again on a redraw', async ($, on) => {
+  pin(on, 'lasso')
   const clock = engine(on)
   on('prompt.submit', (_, e) => ({ text: e.text }))
   await $.turn.start({ text: 'go', turnId: 't' })
@@ -278,7 +281,8 @@ test('a subagent that left a server running goes home after a minute, and comes 
   await ui.unmount()
 })
 
-test('a click anywhere on the band cracks the whip', LASSO, async ($, on) => {
+test('a click anywhere on the band cracks the whip', async ($, on) => {
+  pin(on, 'lasso')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -290,7 +294,8 @@ test('a click anywhere on the band cracks the whip', LASSO, async ($, on) => {
   expect(await lashes()).toBe(1)
 })
 
-test('with nobody else to lash, the lasso flies from where the person clicked to the mascot', LASSO, async ($, on) => {
+test('with nobody else to lash, the lasso flies from where the person clicked to the mascot', async ($, on) => {
+  pin(on, 'lasso')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as {
@@ -304,7 +309,8 @@ test('with nobody else to lash, the lasso flies from where the person clicked to
   expect(whip).toContain('translate(324.0,')
 })
 
-test('quick clicks each crack the whip, a press counting once, the next one left of the last too', LASSO, async ($, on) => {
+test('quick clicks each crack the whip, a press counting once, the next one left of the last too', async ($, on) => {
+  pin(on, 'lasso')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -322,7 +328,8 @@ test('quick clicks each crack the whip, a press counting once, the next one left
   expect(await lash()).toContain('id=\\"lash3\\"')
 })
 
-test('the minis stand from about the band middle, and a click between them and the mascot cracks the whip', LASSO, async ($, on) => {
+test('the minis stand from about the band middle, and a click between them and the mascot cracks the whip', async ($, on) => {
+  pin(on, 'lasso')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   await $.agent.spawn({ prompt: 'dig' } as never)
@@ -342,7 +349,8 @@ test('the minis stand from about the band middle, and a click between them and t
   expect(whip).toContain('id=\\"lash1\\"')
 })
 
-test('a lash flying from past the stage leaves a click region over its tail', LASSO, async ($, on) => {
+test('a lash flying from past the stage leaves a click region over its tail', async ($, on) => {
+  pin(on, 'lasso')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
@@ -397,7 +405,8 @@ const bangs = (on: On) => {
   return () => played.filter(clip => clip.includes('gunshot.wav')).length
 }
 
-test('with the revolver, the person shoots at the mascot feet: it hops, with a bang', REVOLVER, async ($, on) => {
+test('with the revolver, the person shoots at the mascot feet: it hops, with a bang', async ($, on) => {
+  pin(on, 'gun')
   engine(on)
   const played = bangs(on)
   await $.turn.start({ text: 'go', turnId: 't' })
@@ -415,7 +424,8 @@ test('with the revolver, the person shoots at the mascot feet: it hops, with a b
   expect(played()).toBe(1)
 })
 
-test('with the revolver, the mascot shoots at each busy mini in turn, a bang for each', REVOLVER, async ($, on) => {
+test('with the revolver, the mascot shoots at each busy mini in turn, a bang for each', async ($, on) => {
+  pin(on, 'gun')
   const clock = engine(on)
   const played = bangs(on)
   await $.turn.start({ text: 'go', turnId: 't' })
@@ -432,7 +442,8 @@ test('with the revolver, the mascot shoots at each busy mini in turn, a bang for
   expect(played()).toBe(2)
 })
 
-test('in the terminal, the revolver fires at the minis and they hop', REVOLVER, async ($, on) => {
+test('in the terminal, the revolver fires at the minis and they hop', async ($, on) => {
+  pin(on, 'gun')
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   await $.agent.spawn({ prompt: 'dig' } as never)
@@ -441,4 +452,35 @@ test('in the terminal, the revolver fires at the minis and they hop', REVOLVER, 
   const text = JSON.stringify(await ui.findAll({ type: 'Text' }))
   expect(text).toContain('⌐╦╦═─')
   expect(text).toContain('💥')
+})
+
+test('one run punishes with one weapon, every click; the next run with the other', async ($, on) => {
+  const clock = engine(on)
+  const played: string[] = []
+  on('audio.play', (_, e) => {
+    const clip = JSON.stringify(e.clip)
+    if (clip.includes('gunshot.wav')) played.push('gun')
+    if (clip.includes('whip.wav')) played.push('lasso')
+
+    return { value: undefined }
+  })
+  const run = async (turnId: string) => {
+    await $.turn.start({ text: 'go', turnId })
+    const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing
+    for (let k = 0; k < 3; k += 1) {
+      await ui.pointer({ type: 'up', x: 30 + k, y: 0, button: 'left', in: 'lash-backdrop' })
+      await clock.advance(1500)
+    }
+    await $.turn.complete({ answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false, turnId })
+    await clock.advance(10_000)
+    const weapons = played.splice(0)
+
+    return weapons
+  }
+  const first = await run('t1')
+  expect(first.length).toBe(3)
+  expect(new Set(first).size).toBe(1)
+  const second = await run('t2')
+  expect(new Set(second).size).toBe(1)
+  expect(second[0]).not.toBe(first[0])
 })

@@ -69,6 +69,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number }
+    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null }
   }
 }
