@@ -53,6 +53,7 @@ import {
   farthestBow,
   flyArrow,
   readyWeapon,
+  HAND_KIT,
   thudAt,
 } from './art'
 import type { Words } from './i18n'
@@ -1467,6 +1468,13 @@ export const register: Register = on => {
             aimNow.kind === 'self',
           )
 
+    // What a click region needs to draw the weapon in hand while the button
+    // is held: the desktop holds this band's picture still until it comes up.
+    const units = cellUnits
+    const hasBusy = now.minis.some(mini => !mini.isDone)
+    const handAt = (startsAt: number, onMain: boolean) =>
+      units === undefined ? {} : { hand: { kit: HAND_KIT, cellUnits: units, startsAt, onMain, minis: hasBusy } }
+
     // Each actor keeps its own drawing in its own keyed place; a lash is a
     // transparent drawing laid over the row, so it redraws nobody. Drawn as
     // images, not interactive frames: a frame loads blank white on every
@@ -1482,7 +1490,7 @@ export const register: Register = on => {
               <Client
                 key="lash-backdrop"
                 module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow }}
+                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, ...handAt(0, false) }}
                 width="100%"
                 height={CLICK_ROWS}
               />
@@ -1603,7 +1611,7 @@ export const register: Register = on => {
                 <Client
                   key="lash"
                   module="./clicker.tsx"
-                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow }}
+                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, ...handAt(0, true) }}
                   width="100%"
                   height={CLICK_ROWS}
                 />
@@ -1614,7 +1622,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${MAIN_WIDTH}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, ...handAt(MAIN_WIDTH, false) }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
@@ -1671,7 +1679,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${width}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, ...handAt(width, false) }}
                     width="100%"
                     height={CLICK_ROWS}
                   />

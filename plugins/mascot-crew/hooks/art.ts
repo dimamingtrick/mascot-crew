@@ -1424,6 +1424,28 @@ export const readyWeapon = (stage: Stage, width: number, weapon: Weapon, hand: P
   return svg(width, placed(hand, whip) + fist(hand))
 }
 
+// The parts a click region draws a weapon in hand from while the button is
+// held, where the band's own picture stands still (the desktop's), and the
+// geometry it needs: the bow's limbs, its arrow and how far the string
+// pulls, the revolver, the tomato and the whip, as this file draws them.
+export const HAND_KIT = {
+  limbs: BOW_LIMBS,
+  arrow: ARROW,
+  pull: PULL,
+  mainBow: MAIN_BOW,
+  gun: REVOLVER,
+  tomato: TOMATO,
+  whip: HELD_WHIP,
+  personBowX: PERSON_BOW_X,
+  // Where the main mascot holds its bow while it waits, as `held` draws it.
+  mainBowAt: { x: 41, y: 25 },
+  chest: MAIN_CHEST,
+  feet: { x: 22, y: GROUND },
+  scale: SCALE,
+  bottom: HEIGHT - DROP,
+}
+export type HandKit = typeof HAND_KIT
+
 // The person's bow just after the arrow left it: the string snaps back and
 // shivers, and the bow is gone.
 const loosedBow = (anchor: Point, angle: number, pull: number) =>

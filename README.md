@@ -4,7 +4,7 @@ A Claude Code mod: while a task runs, the Claude mascot works above the prompt i
 
 ## What you can do
 
-- **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each run picks a punishment at random as the mascot comes up and keeps it until it leaves: the mascot holds it while it waits, and every click gets the same one. Press and hold: the weapon shows ready in your hand (the desktop app holds the band's picture still while the button is down, so there it shows under the pointer as its emoji, the bow with a bar for its draw), and it strikes when you let go.
+- **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each run picks a punishment at random as the mascot comes up and keeps it until it leaves: the mascot holds it while it waits, and every click gets the same one. Press and hold: the weapon shows ready in your hand (the bow drawing as you hold, with a bar for its draw, and turning to the pointer), and it strikes when you let go.
   - 🪢 **Lasso**: a lash and a 💥 over the head.
   - 🔫 **Revolver**: a shot at the feet with a bang, a 💥 where the bullet lands, and a hop. At the minis the mascot fires once at each, left to right.
   - 🍅 **Tomato**: thrown in an arc, it splats on the face with a squelch, then slides down the body to the ground, leaving a trail of juice and a puddle. Quick clicks throw one after another. At the minis the mascot throws one at each, left to right.
