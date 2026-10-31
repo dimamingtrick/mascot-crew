@@ -426,6 +426,8 @@ let bandColumns: number | undefined
 // percentage of the row, so a little short of the mascot.
 let mainRegionUnits = MAIN_WIDTH
 let measuredAt: number | undefined
+// The band's time its actors were last drawn at, kept while a bow is drawn.
+let frozenFrame: { key: string; at: number } | undefined
 const CELL_ASPECT = 2.1
 type Click = { button: 'left' | 'right'; x: number; y: number; columns: number; rows: number }
 
@@ -1169,7 +1171,8 @@ export const register: Register = on => {
     const isWaiting = now.minis.length > 0
     const minis = now.minis.slice(0, MAX_MINIS)
     const onWhip = () => void crackWhip($)
-    const at = await $.clock.now()
+    const realAt = await $.clock.now()
+    let at = realAt
     const language = await read($, lang)
     const w = WORDS[language] ?? WORDS[DEFAULT_LANG]
     const gearOpen = await read($, isGearOpen)
@@ -1188,7 +1191,7 @@ export const register: Register = on => {
       ))
     // The band knows when the main turn is over: a stage still showing it at
     // work has missed its end.
-    if (now.isWorking && !e.props.isWorking && at - turnStartedAt > 3000) void settleMainTurn($)
+    if (now.isWorking && !e.props.isWorking && realAt - turnStartedAt > 3000) void settleMainTurn($)
     startSweep($)
 
     if (e.surface === 'terminal') {
@@ -1197,12 +1200,15 @@ export const register: Register = on => {
       startFrames($)
       const isOdd = (await read($, tick)) % 2 === 1
       const whipping = await read($, whip)
-      const weapon = whipping === 'none' ? undefined : ((await read($, lash)).weapon ?? 'lasso')
+      const lastShot = await read($, lash)
+      const weapon = whipping === 'none' ? undefined : (lastShot.weapon ?? 'lasso')
+      // An arrow that missed the main mascot leaves it as it was.
+      const missed = weapon === 'bow' && lastShot.hit !== 'main'
       const pose: TermPose =
         whipping === 'minis'
-          ? weapon === 'gun' ? 'shoot' : weapon === 'tomato' ? 'toss' : 'whip'
-          : whipping === 'self'
-            ? weapon === 'gun' ? 'hop' : weapon === 'tomato' ? 'splat' : 'ouch'
+          ? weapon === 'gun' ? 'shoot' : weapon === 'tomato' ? 'toss' : weapon === 'bow' ? 'bow' : 'whip'
+          : whipping === 'self' && !missed
+            ? weapon === 'gun' ? 'hop' : weapon === 'tomato' ? 'splat' : weapon === 'bow' ? 'stuck' : 'ouch'
             : isWaiting
               ? 'wait'
               : now.isWorking
@@ -1214,7 +1220,7 @@ export const register: Register = on => {
           termMini(
             mini.isDone
               ? 'salute'
-              : whipping === 'minis'
+              : whipping === 'minis' && weapon !== 'bow'
                 ? weapon === 'gun' ? 'hop' : weapon === 'tomato' ? 'splat' : 'ouch'
                 : 'work',
             jobOf(mini.job),
@@ -1267,14 +1273,37 @@ export const register: Register = on => {
     // While the gear's menu is open, no click regions: its buttons alone take
     // the clicks, whatever lies under them.
     const showsRegions = Client !== undefined && !gearOpen
+    // While a bow's string is drawn, every move of the cursor redraws the
+    // band: the actors are drawn as of the first redraw since anything else
+    // changed, so their pictures stay as they were and never load again
+    // mid-aim. Only the bow's own picture follows the cursor.
+    const aimNow = await read($, aim)
+    const arrowsNow = await read($, arrows)
+    const frameKey = JSON.stringify([
+      now,
+      await read($, lash),
+      arrowsNow.map(one => one.n),
+      (await read($, tosses)).length,
+      await read($, popup),
+      await read($, band),
+      await read($, armed),
+      language,
+      aimNow?.at,
+      aimNow?.kind,
+    ])
+    if (aimNow !== null && frozenFrame?.key === frameKey) at = frozenFrame.at
+    frozenFrame = aimNow === null ? undefined : { key: frameKey, at }
     const handoffLeft = now.handoffAt + FINISH_MS - at
     // A fresh lash at the minis takes the whip out of the main mascot's hand
     // for the swing that the whip's own drawing shows.
     const lastLash = await read($, lash)
     // What the main mascot holds: this run's weapon.
     const weaponNow = (await read($, armed)) ?? 'lasso'
+    // The main mascot keeps its bow in hand after a shot; while it draws the
+    // string, the bow is in the drawn bow's picture instead.
+    const bowDrawnAt = aimNow?.kind === 'minis' ? (aimNow.at - now.enterAt) / 1000 : undefined
     const lashAtWait =
-      lastLash.n > 0 && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
+      lastLash.n > 0 && lastLash.weapon !== 'bow' && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
         ? lastLash.at
         : undefined
     const lashFor =
@@ -1294,7 +1323,12 @@ export const register: Register = on => {
           }
         : {
             source: shiftTime(
-              waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000, lashFor, weaponNow),
+              waiting(
+                job,
+                bowDrawnAt ?? (lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000),
+                bowDrawnAt === undefined ? lashFor : 3600,
+                weaponNow,
+              ),
               (at - now.enterAt) / 1000,
             ),
             alt: w.waiting }
@@ -1306,8 +1340,13 @@ export const register: Register = on => {
     // With tomatoes, every throw still flying, over the row as it stands.
     const flying =
       last.weapon === 'tomato' ? (await read($, tosses)).filter(one => one.row === rowOf(now) && isFlying(one, at)) : []
+    // With the bow, every arrow still flying, stuck or falling.
+    const flyingArrows =
+      last.weapon === 'bow' ? arrowsNow.filter(one => one.row === rowOf(now) && isArrowSeen(one, at)) : []
     const isFresh =
-      last.weapon === 'tomato'
+      last.weapon === 'bow'
+        ? flyingArrows.length > 0
+        : last.weapon === 'tomato'
         ? flying.length > 0
         : last.n > 0 && last.row === rowOf(now) && at - last.at < freshFor(last)
     // A fresh shot: when (in seconds of a drawing loaded now) shot `k` lands,
@@ -1349,7 +1388,9 @@ export const register: Register = on => {
       ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at, w, language)
       : undefined
     const fxW =
-      last.weapon === 'tomato'
+      last.weapon === 'bow'
+        ? fxWidth(stage, farthestBow(flyingArrows))
+        : last.weapon === 'tomato'
         ? fxWidth(stage, farthestToss(flying))
         : fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
     // The click regions reach as far as the lash's drawing: a picture takes
@@ -1358,11 +1399,28 @@ export const register: Register = on => {
     const hitPct = (w: number) => `${Math.floor((w / reach) * 100)}%`
     mainRegionUnits = (Math.floor((MAIN_WIDTH / reach) * 100) / 100) * reach
     const fx =
-      flying.length > 0
+      flyingArrows.length > 0
+        ? arrowFx(stage, flyingArrows.map(one => ({ ...one, elapsed: (at - one.at) / 1000 })), leavers)
+        : flying.length > 0
         ? tomatoFx(stage, flying.map(one => ({ ...one, elapsed: (at - one.at) / 1000 })), leavers)
         : isFresh || leavers.length > 0
           ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
         : undefined
+
+    // The bow being drawn: its own picture, over the row as far right as the
+    // person holds it, aimed at the cursor.
+    const aimW = aimNow === null ? width : Math.max(width, Math.ceil(aimNow.anchor.x + 20))
+    const aimSvg =
+      aimNow === null
+        ? undefined
+        : drawingBow(
+            aimW,
+            aimNow,
+            (aimAngle(stage, aimNow.anchor, aimNow.target, aimNow.kind === 'self' ? 'person' : 'main') * 180) / Math.PI,
+            (realAt - aimNow.at) / 1000,
+            aimNow.kind === 'self',
+          )
+    const bowArmed = weaponNow === 'bow'
 
     // Each actor keeps its own drawing in its own keyed place; a lash is a
     // transparent drawing laid over the row, so it redraws nobody. Drawn as
@@ -1379,7 +1437,7 @@ export const register: Register = on => {
               <Client
                 key="lash-backdrop"
                 module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS, reportsSize: true }}
+                props={{ rows: CLICK_ROWS, reportsSize: true, bow: bowArmed }}
                 width="100%"
                 height={CLICK_ROWS}
               />
@@ -1461,10 +1519,23 @@ export const register: Register = on => {
             <Box key="whip-fx" position="absolute" top={0} left={0} width={`${Math.ceil((fxW / width) * 100)}%`}>
               <Svg
                 source={fx}
-                alt={isShot ? w.shot : isFresh && last.weapon === 'tomato' ? w.tomato : w.lasso}
+                alt={
+                  isShot
+                    ? w.shot
+                    : isFresh && last.weapon === 'tomato'
+                      ? w.tomato
+                      : isFresh && last.weapon === 'bow'
+                        ? w.bow
+                        : w.lasso
+                }
                 width={fxW * SCALE}
                 height={HEIGHT * SCALE}
               />
+            </Box>
+          )}
+          {aimSvg !== undefined && (
+            <Box key="bow-aim" position="absolute" top={0} left={0} width={`${Math.ceil((aimW / width) * 100)}%`}>
+              <Svg source={aimSvg} alt={w.bow} width={aimW * SCALE} height={HEIGHT * SCALE} />
             </Box>
           )}
           {Client !== undefined && showsRegions && (
@@ -1487,7 +1558,7 @@ export const register: Register = on => {
                 <Client
                   key="lash"
                   module="./clicker.tsx"
-                  props={{ rows: CLICK_ROWS, reportsSize: true }}
+                  props={{ rows: CLICK_ROWS, reportsSize: true, bow: bowArmed }}
                   width="100%"
                   height={CLICK_ROWS}
                 />
@@ -1498,7 +1569,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${MAIN_WIDTH}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS }}
+                    props={{ rows: CLICK_ROWS, bow: bowArmed }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
@@ -1555,7 +1626,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${width}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS }}
+                    props={{ rows: CLICK_ROWS, bow: bowArmed }}
                     width="100%"
                     height={CLICK_ROWS}
                   />

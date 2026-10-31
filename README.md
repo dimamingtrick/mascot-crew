@@ -8,12 +8,13 @@ A Claude Code mod: while a task runs, the Claude mascot works above the prompt i
   - 🪢 **Lasso**: a lash and a 💥 over the head.
   - 🔫 **Revolver**: a shot at the feet with a bang, a 💥 where the bullet lands, and a hop. At the minis the mascot fires once at each, left to right.
   - 🍅 **Tomato**: thrown in an arc, it splats on the face with a squelch, then slides down the body to the ground, leaving a trail of juice and a puddle. Quick clicks throw one after another. At the minis the mascot throws one at each, left to right.
+  - 🏹 **Bow**: press and hold to draw the string (the longer you hold, the harder it shoots, up to a second), move the cursor to aim, let go to shoot with a twang. The arrow flies in an arc, so a weak or badly aimed shot can miss. A hit lands with a thud; arrows stack up in the body and each one falls off a second after it hit. Pressed elsewhere on the band, the mascot draws its own bow at the minis and shoots one arrow, aimed and drawn by your cursor the same way. In the terminal the 🪢 FASTER button shoots a well-drawn arrow straight at the target.
 
-  Everyone gets all three, and they come up about equally often across runs.
+  Everyone gets all four, and they come up about equally often across runs.
 - **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
 - **Click a mini** to open the crew pane: every working subagent's task, model, status, time and recent steps, each with ⏹ Stop and ⏱ How long left? buttons. In the terminal it's the 📋 Minis button.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
-- **Click the ⚙ gear** in the band's right corner to pick the language (English, the default, or Ukrainian) and which weapons a run may pick: untick the lasso, the revolver or the tomato to leave it out (all are on by default, and the last one on stays on). Both choices are kept for later sessions.
+- **Click the ⚙ gear** in the band's right corner to pick the language (English, the default, or Ukrainian) and which weapons a run may pick: untick the lasso, the revolver, the tomato or the bow to leave it out (all are on by default, and the last one on stays on). Both choices are kept for later sessions.
 
 A mini whose subagent left work running in the background (a dev server, say) goes home after a minute of quiet; the work keeps running in Background tasks.
 
@@ -47,7 +48,7 @@ Then start a new session.
 
 ## What it runs
 
-Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays its bundled sounds (the lash, the gunshot, the splat), and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests; the only things it keeps between sessions are your language and your weapons, in the mod's own store.
+Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays its bundled sounds (the lash, the gunshot, the splat, the bowstring and the arrow's thud), and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests; the only things it keeps between sessions are your language and your weapons, in the mod's own store.
 
 ## License
 

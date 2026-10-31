@@ -29,13 +29,17 @@ type Drawing = {
   press: (target: { key: string }) => Promise<unknown>
   pointer: (event: { type: 'down' | 'up'; x: number; y: number; button: 'left' | 'right'; in?: string }) => Promise<void>
 }
-const lash = (ui: Drawing, surface: 'terminal' | 'desktop') =>
-  surface === 'terminal'
-    ? ui.press({ key: 'whip' })
-    : ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'lash' })
+// A click on the desktop is a press and its release (the bow looses only
+// when the button comes up).
+const lash = async (ui: Drawing, surface: 'terminal' | 'desktop') => {
+  if (surface === 'terminal') return ui.press({ key: 'whip' })
+  await ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'lash' })
+
+  return ui.pointer({ type: 'up', x: 0, y: 0, button: 'left', in: 'lash' })
+}
 
 // A run punishes with a weapon picked at random; this arms it with one.
-const pin = (on: On, weapon: 'lasso' | 'gun' | 'tomato') =>
+const pin = (on: On, weapon: 'lasso' | 'gun' | 'tomato' | 'bow') =>
   on('state.get', { plugin: 'mascot-crew', key: 'armed' }, () => ({
     value: { value: weapon, version: 1 },
   }))
@@ -463,6 +467,7 @@ test('one run punishes with one weapon, every click; the next run with the other
     if (clip.includes('gunshot.wav')) played.push('gun')
     if (clip.includes('whip.wav')) played.push('lasso')
     if (clip.includes('splat.wav')) played.push('tomato')
+    if (clip.includes('bow.wav')) played.push('bow')
 
     return { value: undefined }
   })
@@ -617,11 +622,16 @@ test('quick tomato clicks each throw one more, none cutting the others short', a
 test('while it waits, the mascot holds the run\'s own weapon: the whip, the revolver or a tomato', async ($, on) => {
   // What each weapon looks like in its hand, drawn by nothing else: the
   // whip's lash, the revolver's barrel, the tomato's shine.
-  const looks = { lasso: 'Q9 -4 7 3', gun: 'width=\\"7.4\\" height=\\"1.8\\"', tomato: '#ff8a80' } as const
+  const looks = {
+    lasso: 'Q9 -4 7 3',
+    gun: 'width=\\"7.4\\" height=\\"1.8\\"',
+    tomato: '#ff8a80',
+    bow: 'M-4.5 -10.5 L-4.50 0 L-4.5 10.5',
+  } as const
   let armed: keyof typeof looks = 'lasso'
   on('state.get', { plugin: 'mascot-crew', key: 'armed' }, () => ({ value: { value: armed, version: 1 } }))
   const clock = engine(on)
-  for (const weapon of ['lasso', 'gun', 'tomato'] as const) {
+  for (const weapon of ['lasso', 'gun', 'tomato', 'bow'] as const) {
     armed = weapon
     await $.turn.start({ text: 'go', turnId: `t-${weapon}` })
     await $.agent.spawn({ prompt: 'dig' } as never)
@@ -661,10 +671,12 @@ test('the gear turns weapons off: a run never picks one that is off, the last st
   const desk = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Gear
   // All on at first.
   await desk.press({ key: 'gear-button' })
-  for (const one of ['lasso', 'gun', 'tomato']) expect(await label(desk, `weapon-${one}`)).toContain('☑')
-  // Off with the revolver and the tomato; the menu stays open meanwhile.
+  for (const one of ['lasso', 'gun', 'tomato', 'bow']) expect(await label(desk, `weapon-${one}`)).toContain('☑')
+  // Off with the revolver, the tomato and the bow; the menu stays open meanwhile.
   await desk.press({ key: 'weapon-gun' })
   await desk.press({ key: 'weapon-tomato' })
+  await desk.press({ key: 'weapon-bow' })
+  expect(await label(desk, 'weapon-bow')).toContain('☐')
   expect(await label(desk, 'weapon-gun')).toContain('☐')
   expect(await label(desk, 'weapon-tomato')).toContain('☐')
   // The lasso, the last one on, stays on.
@@ -696,4 +708,134 @@ test('the gear turns weapons off: a run never picks one that is off, the last st
   expect(await label(term, 'weapon-lasso')).toContain('☑')
   await term.press({ key: 'weapon-tomato' })
   expect(stored.get('arsenal')).toEqual(['lasso', 'tomato'])
+})
+
+// The sounds played, as the engine beneath the mod hears them.
+const clips = (on: On) => {
+  const played: string[] = []
+  on('audio.play', (_, e) => {
+    const clip = JSON.stringify(e.clip)
+    if (clip.includes('bow.wav')) played.push('twang')
+    if (clip.includes('thud.wav')) played.push('thud')
+
+    return { value: undefined }
+  })
+
+  return played
+}
+// One step of a press with the bow, as the click region posts it: where in
+// its cells (3 rows tall), on the main mascot's region or the bare band's.
+const bowStep = (ui: Band, bow: 'down' | 'move' | 'up', x: number, y: number, region = 'lash') =>
+  ui.post({ bow, x, y, columns: 120, rows: 3 }, { in: region })
+const arrowsOf = (all: string[]) => all.filter(svg => svg.includes('Bow and arrow') && svg.includes('animateMotion'))
+
+test('with the bow, a press draws the string, the cursor aims it, and letting go looses an arrow into the mascot', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  const played = clips(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  // 8 units a cell: the press is 100 units right, 23 down.
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  await bowStep(ui, 'down', 12.5, 2)
+  const drawn = (await drawings(ui)).find(svg => svg.includes('Bow and arrow')) ?? ''
+  // The person's fist holds the bow where they pressed, its string drawing.
+  expect(drawn).toContain('cx=\\"100.0\\"')
+  expect(drawn).toContain('attributeName=\\"d\\"')
+  expect(played).toEqual([])
+  // Aimed left at the mascot, drawn to full, let go.
+  await bowStep(ui, 'move', 2, 2)
+  await clock.advance(1100)
+  await bowStep(ui, 'up', 2, 2)
+  const all = await drawings(ui)
+  const arrow = arrowsOf(all)
+  expect(arrow.length).toBe(1)
+  expect(arrow[0]).toContain('id=\\"lash1\\"')
+  expect(arrow[0]).toContain('rotate=\\"auto\\"')
+  // No bow is drawn any more.
+  expect(all.filter(svg => svg.includes('Bow and arrow')).length).toBe(1)
+  expect(played).toEqual(['twang'])
+  await clock.advance(200)
+  expect(played).toEqual(['twang', 'thud'])
+})
+
+test('with the bow, a weak shot from far away falls short: no thud', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  const played = clips(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  // Pressed far out on the bare band, aimed at the mascot, let go at once.
+  await bowStep(ui, 'down', 60, 2, 'lash-backdrop')
+  await bowStep(ui, 'move', 2, 2, 'lash-backdrop')
+  await bowStep(ui, 'up', 2, 2, 'lash-backdrop')
+  expect(arrowsOf(await drawings(ui)).length).toBe(1)
+  await clock.advance(4000)
+  expect(played).toEqual(['twang'])
+})
+
+test('with the bow, arrows stack up in the mascot, each one falling off a second after it hit', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  for (let k = 0; k < 3; k += 1) {
+    await bowStep(ui, 'down', 12.5, 2)
+    await bowStep(ui, 'move', 2, 1.6 + k * 0.4)
+    // Half drawn, quick: all three are still in it.
+    await clock.advance(400)
+    await bowStep(ui, 'up', 2, 1.6 + k * 0.4)
+    await clock.advance(100)
+  }
+  const arrow = arrowsOf(await drawings(ui))[0] ?? ''
+  for (const n of [1, 2, 3]) expect(arrow).toContain(`id=\\"lash${n}\\"`)
+  // Stuck for a second of a 1.95 s life, then a fall to the ground.
+  expect(arrow.split('keyTimes=\\"0;0.513;0.692;1\\"').length - 1).toBe(6)
+})
+
+test('with the bow, the mascot shoots one arrow at the minis, aimed and drawn as the person does', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  const played = clips(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  await $.agent.spawn({ prompt: 'fill' } as never)
+  await clock.advance(2500)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  // 10 units a cell; the first mini's chest is at (134, 32).
+  await ui.post({ size: { columns: 11, rows: 3 } }, { in: 'lash' })
+  await bowStep(ui, 'down', 13.4, 2.62, 'lash-backdrop')
+  const aiming = await drawings(ui)
+  // The mascot's own bow leaves its hand for the one it draws.
+  expect(aiming.find(svg => svg.includes('Claude waits')) ?? '').toContain('dur=\\"3600.00s\\"')
+  const bow = aiming.find(svg => svg.includes('Bow and arrow')) ?? ''
+  expect(bow).toContain('translate(42.0,25.0)')
+  await clock.advance(1100)
+  await bowStep(ui, 'up', 13.4, 2.62, 'lash-backdrop')
+  const arrow = arrowsOf(await drawings(ui))
+  expect(arrow.length).toBe(1)
+  expect(arrow[0]?.split('<animateMotion').length).toBe(2)
+  // It struck the first mini: its eyes shut.
+  expect(arrow[0]).toContain('translate(122,20.8) scale(0.6)')
+  await clock.advance(300)
+  expect(played).toEqual(['twang', 'thud'])
+})
+
+test('with the bow, the click region reports a press, its moves and its release', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  const played = clips(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band & {
+    pointer: (event: { type: 'down' | 'move' | 'up'; x: number; y: number; button: 'left'; in?: string }) => Promise<void>
+  }
+  await ui.pointer({ type: 'down', x: 12, y: 1, button: 'left', in: 'lash' })
+  expect((await drawings(ui)).some(svg => svg.includes('Bow and arrow'))).toBe(true)
+  await ui.pointer({ type: 'move', x: 2, y: 1, button: 'left', in: 'lash' })
+  await clock.advance(600)
+  await ui.pointer({ type: 'up', x: 2, y: 1, button: 'left', in: 'lash' })
+  expect(arrowsOf(await drawings(ui)).length).toBe(1)
+  expect(played[0]).toBe('twang')
 })

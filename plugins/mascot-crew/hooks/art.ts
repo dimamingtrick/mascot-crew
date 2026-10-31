@@ -777,7 +777,7 @@ const held = (weapon: Weapon) =>
     : weapon === 'tomato'
       ? `<g transform="translate(1.5,-3) scale(0.85)">${TOMATO}</g>`
       : weapon === 'bow'
-        ? `<g transform="translate(1.5,0) scale(0.8)">${bow(0)}</g>`
+        ? `<g transform="translate(2,0) scale(0.8)">${bow(0)}</g>`
         : HELD_WHIP
 const heldLeft = (weapon: Weapon) =>
   weapon === 'gun'
@@ -785,7 +785,7 @@ const heldLeft = (weapon: Weapon) =>
     : weapon === 'tomato'
       ? `<g transform="translate(-1.5,-3) scale(0.85)">${TOMATO}</g>`
       : weapon === 'bow'
-        ? `<g transform="translate(-1.5,0) scale(-0.8,0.8)">${bow(0)}</g>`
+        ? `<g transform="translate(-2,0) scale(-0.8,0.8)">${bow(0)}</g>`
         : LEFT_WHIP
 
 // Waits with the run's weapon ready in its right hand and taps a foot; now
@@ -1242,9 +1242,11 @@ const LIE = 0.6
 const IN_GROUND = 1.3
 // How far the string is pulled back at full draw.
 const PULL = 9
-// Where the main mascot holds its bow, and the middle of the bodies an arrow
-// is aimed at when no cursor says where.
-export const MAIN_HAND: Point = { x: 39, y: 25 }
+// Where the main mascot holds its bow (a smaller one, held out in front so
+// the drawn string stays clear of its face), and the middle of the bodies an
+// arrow is aimed at when no cursor says where.
+export const MAIN_HAND: Point = { x: 42, y: 25 }
+const MAIN_BOW = 0.8
 const MAIN_CHEST: Point = { x: 22, y: 27 }
 const miniChest = (x: number): Point => ({ x: x + DESK + 12, y: 32 })
 // The person's bow is held at least this far right, clear of the mascot.
@@ -1254,12 +1256,12 @@ export const PERSON_BOW_X = 74
 // looses a weak arrow.
 export const drawPower = (heldS: number) => Math.min(1, Math.max(0.06, heldS / FULL_DRAW))
 
-// The bow, aimed right along +x with its grip at (0,0), the string pulled
-// back `pull` units.
+// The bow, aimed right along +x with its grip at (0,0): one arc, its ends
+// tied by the string, pulled back `pull` units.
 const BOW_LIMBS =
-  '<path d="M-1.5 -10 Q6.5 -7 1 0 Q6.5 7 -1.5 10" stroke="#6d4c41" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
-  '<rect x="-0.4" y="-2.2" width="2.6" height="4.4" rx="0.6" fill="#3e2723"/>'
-const stringPath = (pull: number) => `M-1.5 -10 L${(-1.5 - pull).toFixed(2)} 0 L-1.5 10`
+  '<path d="M-4.5 -10.5 Q4.5 0 -4.5 10.5" stroke="#6d4c41" stroke-width="1.7" fill="none" stroke-linecap="round"/>' +
+  '<rect x="-1.2" y="-2.4" width="2.4" height="4.8" rx="0.6" fill="#3e2723"/>'
+const stringPath = (pull: number) => `M-4.5 -10.5 L${(-4.5 - pull).toFixed(2)} 0 L-4.5 10.5`
 const STRING = 'stroke="#eceff1" stroke-width="0.55" fill="none"'
 const bow = (pull: number) => `<path d="${stringPath(pull)}" ${STRING}/>${BOW_LIMBS}`
 
@@ -1269,7 +1271,7 @@ const ARROW =
   '<path d="M0 0 L-3.4 -1.7 L-2.6 0 L-3.4 1.7Z" fill="#90a4ae"/>' +
   '<path d="M-14.5 0 l-1.8 -2.2 h-2.4 l1.8 2.2Z M-14.5 0 l-1.8 2.2 h-2.4 l1.8 -2.2Z" fill="#e53935"/>'
 // An arrow nocked on a string pulled back `pull`: its nock on the string.
-const nockedAt = (pull: number) => -1.5 - pull + 15
+const nockedAt = (pull: number) => -4.5 - pull + 15
 
 const deg = (rad: number) => (rad * 180) / Math.PI
 const fx1 = (n: number) => n.toFixed(1)
@@ -1387,7 +1389,7 @@ export const drawingBow = (width: number, aim: Pick<Aim, 'anchor'>, angle: numbe
 
   return svg(
     width,
-    `${bar}<g transform="translate(${fx1(x)},${fx1(y)}) rotate(${angle.toFixed(1)})"><g>${tremble}${string}${BOW_LIMBS}${arrow}</g></g>${fist}`,
+    `${bar}<g transform="translate(${fx1(x)},${fx1(y)}) rotate(${angle.toFixed(1)})${isPerson ? '' : ` scale(${MAIN_BOW})`}"><g>${tremble}${string}${BOW_LIMBS}${arrow}</g></g>${fist}`,
   )
 }
 
