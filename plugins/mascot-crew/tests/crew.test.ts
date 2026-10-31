@@ -913,3 +913,29 @@ test('on the desktop, the region under the pointer draws the weapon in hand whil
   await ui.pointer({ type: 'up', x: 2, y: 2, button: 'left', in: 'lash' })
   expect(await region()).not.toContain('"type":"Svg"')
 })
+
+test('on the desktop, a press that has the mascot shoot at the minis draws the string on its own bow, nothing under the pointer', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  await $.agent.spawn({ prompt: 'fill' } as never)
+  await clock.advance(2500)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band & {
+    pointer: (event: { type: 'down' | 'move' | 'up'; x: number; y: number; button: 'left'; in?: string }) => Promise<void>
+    drawn: (scope: { in: string }) => Promise<unknown>
+    advance: (ms: number) => Promise<void>
+  }
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  const region = async (key: string) => JSON.stringify(await ui.drawn({ in: key }))
+  await ui.pointer({ type: 'down', x: 1, y: 2, button: 'left', in: 'lash-backdrop' })
+  await ui.advance(500)
+  expect(await region('lash-backdrop')).not.toContain('"type":"Svg"')
+  // The mascot's own region draws its bow where it holds it, half drawn.
+  const main = await region('lash')
+  expect(main).toContain('translate(41.0,25.0) rotate(0.0) scale(0.8)')
+  expect(main).toContain('width=\\"8.0\\"')
+  await ui.pointer({ type: 'up', x: 1, y: 2, button: 'left', in: 'lash-backdrop' })
+  await ui.advance(100)
+  expect(await region('lash')).not.toContain('"type":"Svg"')
+})

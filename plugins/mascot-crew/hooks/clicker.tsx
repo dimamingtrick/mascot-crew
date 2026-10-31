@@ -18,7 +18,9 @@ const HAND_LEFT = 2
 // `ticks`: TICK_MS steps of the surface's frame clock since the press; `fx`
 // and `fy` the pointer with the fraction of a cell, where known.
 type Held = { x: number; y: number; fx: number; fy: number; ticks: number }
-type State = { held?: Held }
+// `mainTicks`: how long the main mascot's bow has been drawn at the minis,
+// for the main mascot's own region to draw.
+type State = { held?: Held; mainTicks?: number }
 // What the region needs to draw the weapon in hand as the band draws it: the
 // parts, the cell's size in the drawing's units, where the region starts in
 // them, whether it is the main mascot's, and whether busy minis are about
@@ -28,6 +30,11 @@ type Point = { x: number; y: number }
 const CELL_ASPECT = 2.1
 const BOX = 40
 
+// The main mascot's bow drawn at the minis, its ticks: set by whichever
+// region took the press, drawn by the main mascot's own region, which covers
+// the main mascot (every region of the band runs in this one module).
+let mainDraw: number | undefined
+
 const f1 = (n: number) => n.toFixed(1)
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 const SHAKE =
@@ -35,36 +42,46 @@ const SHAKE =
 const TREMBLE =
   '<animateTransform attributeName="transform" type="rotate" values="0;1.2;-1.2;0" dur="0.12s" repeatCount="indefinite"/>'
 
-// The weapon in hand, in the drawing's units: the person's in their fist by
-// the pointer, the bow drawn as far as it has been held and aimed at the
-// pointer (or, close to it, at the main mascot). At the minis, the main
-// mascot's own bow, laid right over the one it holds in the band's still
-// picture, drawn the same way; its other weapons stay as they are drawn
-// (undefined: nothing to draw). Returns the markup and the point it is
+const powerOf = (ticks: number) => Math.min(1, Math.max(0.06, (ticks * TICK_MS) / FULL_DRAW_MS))
+const drawBar = (at: Point, power: number) =>
+  `<rect x="${f1(at.x - 8)}" y="${f1(at.y)}" width="16" height="2" rx="1" fill="#000" opacity="0.25"/>` +
+  `<rect x="${f1(at.x - 8)}" y="${f1(at.y)}" width="${f1(16 * power)}" height="2" rx="1" fill="${power >= 1 ? '#e53935' : '#ffd54a'}"/>`
+const drawBow = (kit: HandKit, at: Point, angle: number, power: number, scale: number) => {
+  const pull = kit.pull * power
+  const string = `<path d="M-4.5 -10.5 L${(-4.5 - pull).toFixed(2)} 0 L-4.5 10.5" stroke="#eceff1" stroke-width="0.55" fill="none"/>`
+  const arrow = `<g transform="translate(${(-4.5 - pull + 15).toFixed(2)},0)">${kit.arrow}</g>`
+
+  return `<g transform="translate(${f1(at.x)},${f1(at.y)}) rotate(${angle.toFixed(1)})${scale === 1 ? '' : ` scale(${scale})`}"><g>${power >= 1 ? TREMBLE : ''}${string}${kit.limbs}${arrow}</g></g>`
+}
+
+// The main mascot's bow at the minis, laid right over the one it holds in
+// the band's still picture, its string drawn as far as it has been held.
+export const mainBow = (kit: HandKit, ticks: number) => {
+  const power = powerOf(ticks)
+  const at = kit.mainBowAt
+
+  return { body: drawBar({ x: at.x, y: at.y - 15 }, power) + drawBow(kit, at, 0, power, kit.mainBow), center: at }
+}
+
+// The person's weapon in their fist by the pointer, in the drawing's units:
+// the bow drawn as far as it has been held and aimed at the pointer (or,
+// close to it, at the main mascot), the revolver at the main mascot's feet,
+// the whip or a tomato raised. Returns the markup and the point it is
 // around.
 export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number, rows: number) => {
   const { kit } = hand
-  const isMain = hand.minis && !hand.onMain && hand.startsAt === 0
-  if (isMain && weapon !== 'bow') return undefined
-  const fist = (p: Point, r = 2.2) => (isMain ? '' : `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r}" fill="#5b3a1e"/>`)
+  const fist = (p: Point, r = 2.2) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r}" fill="#5b3a1e"/>`
   const at = (p: Point, inner: string) => `<g transform="translate(${f1(p.x)},${f1(p.y)})">${inner}</g>`
   const top = kit.bottom - rows * hand.cellUnits * CELL_ASPECT
   if (weapon === 'bow') {
-    const anchor = isMain ? kit.mainBowAt : { x: Math.max(kit.personBowX, cursor.x), y: clamp(cursor.y, 4, 36) }
+    const anchor = { x: Math.max(kit.personBowX, cursor.x), y: clamp(cursor.y, 4, 36) }
     const isNear = Math.hypot(cursor.x - anchor.x, cursor.y - anchor.y) < 3
     const target = isNear ? kit.chest : cursor
-    const angle = isMain ? 0 : (Math.atan2(target.y - anchor.y, target.x - anchor.x) * 180) / Math.PI
-    const power = Math.min(1, Math.max(0.06, (ticks * TICK_MS) / FULL_DRAW_MS))
-    const pull = kit.pull * power
-    const isFull = power >= 1
-    const string = `<path d="M-4.5 -10.5 L${(-4.5 - pull).toFixed(2)} 0 L-4.5 10.5" stroke="#eceff1" stroke-width="0.55" fill="none"/>`
-    const arrow = `<g transform="translate(${(-4.5 - pull + 15).toFixed(2)},0)">${kit.arrow}</g>`
-    const barY = Math.max(top, anchor.y - 15)
-    const bar = `<rect x="${f1(anchor.x - 8)}" y="${f1(barY)}" width="16" height="2" rx="1" fill="#000" opacity="0.25"/>` +
-      `<rect x="${f1(anchor.x - 8)}" y="${f1(barY)}" width="${f1(16 * power)}" height="2" rx="1" fill="${isFull ? '#e53935' : '#ffd54a'}"/>`
-    const bow = `<g transform="translate(${f1(anchor.x)},${f1(anchor.y)}) rotate(${angle.toFixed(1)})${isMain ? ` scale(${kit.mainBow})` : ''}"><g>${isFull ? TREMBLE : ''}${string}${kit.limbs}${arrow}</g></g>`
+    const angle = (Math.atan2(target.y - anchor.y, target.x - anchor.x) * 180) / Math.PI
+    const power = powerOf(ticks)
+    const bar = drawBar({ x: anchor.x, y: Math.max(top, anchor.y - 15) }, power)
 
-    return { body: bar + bow + fist(anchor, 2.4), center: anchor }
+    return { body: bar + drawBow(kit, anchor, angle, power, 1) + fist(anchor, 2.4), center: anchor }
   }
   const grip = { x: cursor.x - HAND_LEFT * hand.cellUnits, y: clamp(cursor.y, top + 2, kit.bottom - 2) }
   if (weapon === 'gun') {
@@ -82,6 +99,9 @@ export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number,
   return { body: at(grip, whip) + fist(grip), center: grip }
 }
 
+// The latest props of each instance, for its timer.
+const propsOf = new WeakMap<object, { hand?: Hand }>()
+
 // A see-through region laid over the band. It posts to the hooks module:
 // - `{ button, x, y, columns, rows }` for a click: left or right (the right
 //   button, or a ctrl+click), where in the region, and how big it is;
@@ -94,12 +114,16 @@ export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number,
 // With `ready`, the run's weapon, and `hand`, it draws that weapon in hand
 // while a left press is held, as the band draws it: the desktop holds the
 // band's own picture still until the button comes up, but not this region's.
+// A press that has the main mascot shoot its bow at the minis draws nothing
+// under the pointer: the main mascot's own region draws the string drawing
+// on its bow.
 // The surface sizes the region by what it draws, so it draws `rows` blank
 // rows across the whole width.
 const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boolean; ready?: string; hand?: Hand }, State> = (
   props,
   surface,
 ) => {
+  propsOf.set(surface, props)
   if (surface.state === undefined) {
     surface.setState({})
     if (props.reportsSize === true) {
@@ -110,10 +134,20 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
         surface.post({ size: { columns: surface.columns, rows: surface.rows } })
       })
     }
-    // The bow's bar grows while held.
+    // The bow's string draws while held; the main mascot's region follows
+    // its bow being drawn at the minis.
     surface.every(TICK_MS, () => {
-      const held = surface.state?.held
-      if (held !== undefined && held.ticks * TICK_MS < FULL_DRAW_MS) surface.setState({ held: { ...held, ticks: held.ticks + 1 } })
+      const state = surface.state ?? {}
+      const { held } = state
+      const isAtMinis = isMinisPress(propsOf.get(surface)?.hand)
+      let next: State = state
+      if (held !== undefined && held.ticks * TICK_MS < FULL_DRAW_MS) {
+        next = { ...next, held: { ...held, ticks: held.ticks + 1 } }
+        if (isAtMinis) mainDraw = held.ticks + 1
+      }
+      if (propsOf.get(surface)?.hand?.onMain === true && next.mainTicks !== mainDraw)
+        next = mainDraw === undefined ? { held: next.held } : { ...next, mainTicks: mainDraw }
+      if (next !== state) surface.setState(next)
     })
   }
   surface.onPointer(event => {
@@ -121,11 +155,16 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
       if (event.type !== 'down' && event.type !== 'move' && event.type !== 'up') return
       if (props.ready !== undefined) {
         const was = surface.state?.held
-        if (event.type === 'up') surface.setState({})
-        else if (event.type === 'down' || was !== undefined)
+        const isAtMinis = isMinisPress(props.hand)
+        if (event.type === 'up') {
+          surface.setState({})
+          if (isAtMinis) mainDraw = undefined
+        } else if (event.type === 'down' || was !== undefined) {
           surface.setState({
             held: { x: event.x, y: event.y, fx: event.fine?.x ?? event.x + 0.5, fy: event.fine?.y ?? event.y + 0.5, ticks: was?.ticks ?? 0 },
           })
+          if (isAtMinis && props.ready === 'bow') mainDraw = was?.ticks ?? 0
+        }
       }
       surface.post({
         press: event.type,
@@ -155,40 +194,43 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
   })
   const { Box, Text } = surface.elements
   const rows = Array.from({ length: props.rows }, (_, row) => <Text key={`r${row}`}> </Text>)
-  const held = surface.state?.held
-  let drawnInHand = null
+  const { held, mainTicks } = surface.state ?? {}
   const hand = props.hand
-  if (held !== undefined && props.ready !== undefined && hand !== undefined && hand.cellUnits > 0) {
-    // The band's own picture, laid where the region sits over it.
+  let drawn: { body: string; center: Point } | undefined
+  if (hand !== undefined && hand.cellUnits > 0 && props.ready !== undefined) {
+    const rowUnits = hand.cellUnits * CELL_ASPECT
+    const top = hand.kit.bottom - props.rows * rowUnits
+    if (held !== undefined && !isMinisPress(hand)) {
+      const cursor = { x: hand.startsAt + held.fx * hand.cellUnits, y: top + held.fy * rowUnits }
+      drawn = inHand(props.ready, hand, cursor, held.ticks, props.rows)
+    } else if (mainTicks !== undefined && hand.onMain && props.ready === 'bow') drawn = mainBow(hand.kit, mainTicks)
+  }
+  let drawnInHand = null
+  if (drawn !== undefined && hand !== undefined) {
+    // The band's own picture, laid where the region sits over it: from the
+    // band's bottom, which the region shares, up the band's height, and from
+    // a whole cell, the picture's own frame moved to match.
     const { kit, cellUnits, startsAt } = hand
-    const rowUnits = cellUnits * CELL_ASPECT
-    const top = kit.bottom - props.rows * rowUnits
-    const cursor = { x: startsAt + held.fx * cellUnits, y: top + held.fy * rowUnits }
-    const drawn = inHand(props.ready, hand, cursor, held.ticks, props.rows)
-    if (drawn !== undefined) {
-      // Whole cells for the place, the picture's own frame moved to match.
-      const left = Math.floor((drawn.center.x - BOX / 2 - startsAt) / cellUnits)
-      const down = Math.floor((drawn.center.y - BOX / 2 - top) / rowUnits)
-      const x0 = startsAt + left * cellUnits
-      const y0 = top + down * rowUnits
-      const px = BOX * kit.scale
-      // An Svg built by hand: the region's table has none, and the desktop
-      // draws one here as it does in the band.
-      const picture = {
-        type: 'Svg',
-        props: {
-          source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f1(x0)} ${f1(y0)} ${BOX} ${BOX}" width="${f1(px)}" height="${f1(px)}">${drawn.body}</svg>`,
-          alt: props.ready,
-          width: px,
-          height: px,
-        },
-      } as unknown as RenderElement
-      drawnInHand = (
-        <Box key="in-hand" position="absolute" left={left} top={down}>
-          {picture}
-        </Box>
-      )
-    }
+    const left = Math.floor((drawn.center.x - BOX / 2 - startsAt) / cellUnits)
+    const x0 = startsAt + left * cellUnits
+    const width = BOX * kit.scale
+    const height = kit.height * kit.scale
+    // An Svg built by hand: the region's table has none, and the desktop
+    // draws one here as it does in the band.
+    const picture = {
+      type: 'Svg',
+      props: {
+        source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f1(x0)} ${f1(kit.bottom - kit.height)} ${BOX} ${kit.height}" width="${f1(width)}" height="${f1(height)}">${drawn.body}</svg>`,
+        alt: props.ready,
+        width,
+        height,
+      },
+    } as unknown as RenderElement
+    drawnInHand = (
+      <Box key="in-hand" position="absolute" left={left} bottom={0}>
+        {picture}
+      </Box>
+    )
   }
 
   return (
@@ -198,5 +240,8 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
     </Box>
   )
 }
+
+// A press there has the main mascot use its weapon on the busy minis.
+const isMinisPress = (hand: Hand | undefined) => hand !== undefined && hand.minis && !hand.onMain
 
 export default Clicker

@@ -1443,6 +1443,7 @@ export const HAND_KIT = {
   feet: { x: 22, y: GROUND },
   scale: SCALE,
   bottom: HEIGHT - DROP,
+  height: HEIGHT,
 }
 export type HandKit = typeof HAND_KIT
 
