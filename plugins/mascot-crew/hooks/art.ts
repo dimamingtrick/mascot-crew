@@ -1096,10 +1096,14 @@ const personShot = (from: { x: number; y: number }, hitX: number) => {
 const miniFeetX = (x: number, n: number, k: number) => x + DESK + 12 + (((n * 7 + k * 5) % 9) - 4)
 
 // Tomatoes, in seconds: each flies for FLIGHT, the next leaves the hand
-// TOSS_GAP after the last, and a splat stays SPLAT, fading at its end.
+// TOSS_GAP after the last. A splat sticks to the face for STICK, slides
+// down to the ground over SLIDE, and lies there as a puddle until it fades:
+// SPLAT in all.
 const FLIGHT = 0.32
 const TOSS_GAP = 0.22
-const SPLAT = 1.2
+const STICK = 0.3
+const SLIDE = 1
+const SPLAT = 2.2
 export const tossAt = (k: number) => k * TOSS_GAP
 // When tomato `k` lands: the splat's squelch is played then.
 export const splatAt = (k: number) => tossAt(k) + FLIGHT
@@ -1123,9 +1127,19 @@ const tomatoFlight = (from: { x: number; y: number }, to: { x: number; y: number
 }
 
 // A tomato squashed on a face at `at`, `size` its scale, from `begin`: it
-// spreads in a blink, sprays drops, drips down and fades.
+// spreads in a blink and sprays drops, then slides down the body to the
+// ground, leaving a trail of juice, and pools there before it fades.
 const splat = (at: { x: number; y: number }, size: number, begin: number) => {
   const b = at2(begin)
+  // How far it slides, in its own units: to just above the ground.
+  const fall = ((GROUND - 1 - at.y) / size).toFixed(1)
+  // Each part runs the splat's whole life, still where it holds: a drawing
+  // loaded again after the slide would not keep a finished one's end.
+  const k = (s: number) => (s / SPLAT).toFixed(3)
+  // Still on the face, sliding (slow to start, as juice is), still below.
+  const ease = `calcMode="spline" keyTimes="0;${k(STICK)};${k(STICK + SLIDE)};1" keySplines="0 0 1 1;0.4 0 0.7 0.8;0 0 1 1" begin="${b}" dur="${at2(SPLAT)}"`
+  const slid = (rest: string, end: string) => `values="${rest};${rest};${end};${end}" ${ease}`
+  const pooled = `keyTimes="0;${k(STICK + SLIDE * 0.85)};${k(STICK + SLIDE * 0.85 + 0.25)};1" begin="${b}" dur="${at2(SPLAT)}"`
   const drops = [
     [-8, -5],
     [7, -6],
@@ -1138,31 +1152,29 @@ const splat = (at: { x: number; y: number }, size: number, begin: number) => {
         `<circle r="0.9" fill="#e53935" opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="0.3s"/><animateTransform attributeName="transform" type="translate" values="0,0;${dx},${dy}" begin="${b}" dur="0.3s" fill="freeze"/></circle>`,
     )
     .join('')
-  const drips = [
-    [-2.5, 7],
-    [2, 10],
-  ]
-    .map(
-      ([x, fall]) =>
-        `<ellipse cx="${x}" cy="2.5" rx="0.9" ry="1.5" fill="#c62828"><animateTransform attributeName="transform" type="translate" values="0,0;0,${fall}" begin="${at2(begin + 0.15)}" dur="${at2(SPLAT - 0.2)}" fill="freeze"/></ellipse>`,
-    )
-    .join('')
+  // The juice it leaves behind on the way down.
+  const trail = `<rect x="-2.6" y="-1" width="5.2" height="0" rx="2.4" fill="#c62828" opacity="0.8"><animate attributeName="height" ${slid('0', fall)}/></rect>`
+  const puddle = `<ellipse cx="0" cy="${(Number(fall) + 2.6).toFixed(1)}" rx="0" ry="0" fill="#c62828"><animate attributeName="rx" values="0;0;7;7" ${pooled}/><animate attributeName="ry" values="0;0;1.5;1.5" ${pooled}/></ellipse>`
   const blob =
     `<g><animateTransform attributeName="transform" type="scale" values="0.2;1.25;1" keyTimes="0;0.5;1" begin="${b}" dur="0.16s" fill="freeze"/>` +
+    // Drawn out a little as it slides.
+    `<g><animateTransform attributeName="transform" type="scale" ${slid('1,1', '0.85,1.2')}/>` +
     '<path d="M-5 -1 Q-6.5 -5.5 -2 -4.2 Q0 -7.5 2.2 -4.3 Q6.5 -5.5 5.2 -1 Q8.5 1 4.3 2.2 Q3.4 5.6 0 3.4 Q-3.4 5.6 -4.3 2.2 Q-8.5 1 -5 -1Z" fill="#d32f2f"/>' +
     '<path d="M-3 -1 Q-3 -3.5 0 -2.6 Q3 -3.5 3 -0.8 Q3 1.8 0 1.4 Q-3 1.8 -3 -1Z" fill="#ef5350"/>' +
     '<g fill="#fff59d"><ellipse cx="-1.4" cy="-1.2" rx="0.5" ry="0.8"/><ellipse cx="1.3" cy="-0.6" rx="0.5" ry="0.8"/><ellipse cx="0" cy="0.8" rx="0.5" ry="0.8"/></g>' +
-    '<path d="M-1 -4.6 L0 -3.8 L1.3 -4.8" stroke="#2e7d32" stroke-width="0.8" fill="none"/></g>'
+    '<path d="M-1 -4.6 L0 -3.8 L1.3 -4.8" stroke="#2e7d32" stroke-width="0.8" fill="none"/></g></g>'
+  const sliding = `<g><animateTransform attributeName="transform" type="translate" ${slid('0,0', `0,${fall}`)}/>${blob}</g>`
 
   return (
     `<g transform="translate(${at.x.toFixed(1)},${at.y.toFixed(1)}) scale(${size})" opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="${at2(SPLAT)}"/>` +
-    `<g><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" begin="${b}" dur="${at2(SPLAT)}"/>${drips}${blob}${drops}</g></g>`
+    `<g><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" begin="${b}" dur="${at2(SPLAT)}"/>${trail}${puddle}${sliding}${drops}</g></g>`
   )
 }
 
-// Shut eyes while the tomato drips: `transform` places the actor's body.
+// Shut eyes while the tomato covers them, till it has slid past:
+// `transform` places the actor's body.
 const squint = (transform: string, begin: number) =>
-  `<g transform="${transform}" opacity="0"><set attributeName="opacity" to="1" begin="${at2(begin)}" dur="${at2(SPLAT * 0.8)}"/><rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
+  `<g transform="${transform}" opacity="0"><set attributeName="opacity" to="1" begin="${at2(begin)}" dur="${at2(STICK + SLIDE * 0.6)}"/><rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
 
 // Where a tomato lands on the main mascot's face, and on a mini's at `x`.
 const MAIN_FACE = { x: 22, y: 23 }
