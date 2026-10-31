@@ -5,6 +5,7 @@ import type { Lang, Lash, Mini, Popup, Scene, Toss, Weapon, Whip } from '../type
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
+  DROP,
   HEIGHT,
   MAIN_WIDTH,
   PAIN_MS,
@@ -400,7 +401,7 @@ const pointOf = (click: Click) => {
 
   return {
     x: Math.max(0, (click.x + 0.5 - HAND_LEFT_CELLS) * cellUnits),
-    y: Math.min(HEIGHT - 2, Math.max(2, HEIGHT - fromBottom)),
+    y: Math.min(HEIGHT - DROP - 2, Math.max(2 - DROP, HEIGHT - DROP - fromBottom)),
   }
 }
 

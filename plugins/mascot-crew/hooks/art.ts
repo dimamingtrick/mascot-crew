@@ -722,8 +722,13 @@ const workerBody = (job: Job) =>
 const worker = (job: Job, near = 0) =>
   workerBody(job) + (near === 0 ? job.target : `<g transform="translate(${-near},0)">${job.target}</g>`)
 
+// How far the frame is moved up over the scene, so the feet (at y=40) stand on
+// the picture's bottom edge, right above the prompt, and the tallest hats get
+// that room overhead instead.
+export const DROP = 6
+
 const svg = (width: number, body: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} 46" width="${width * SCALE}" height="${46 * SCALE}">${body}</svg>`
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${-DROP} ${width} 46" width="${width * SCALE}" height="${46 * SCALE}">${body}</svg>`
 
 // One unit of a drawing in pixels.
 export const SCALE = 1.6 / 1.5
@@ -1064,7 +1069,7 @@ const shot = (muzzle: { x: number; y: number }, angle: number, target: { x: numb
         `<rect x="${(x - 0.5).toFixed(1)}" y="${(y - 1).toFixed(1)}" width="1.2" height="1.2" fill="#8d6e63" opacity="0"><set attributeName="opacity" to="1" begin="${at2(hit)}" dur="0.3s"/><animateTransform attributeName="transform" type="translate" values="0,0;${dx},${dy};${(dx ?? 0) * 1.4},${(dy ?? 0) * 0.3}" begin="${at2(hit)}" dur="0.3s"/></rect>`,
     )
     .join('')
-  const boom = `<text x="${(x - size * 0.55).toFixed(1)}" y="${Math.min(HEIGHT - 0.5, y + size * 0.4).toFixed(1)}" font-size="${size}" opacity="0">💥<set attributeName="opacity" to="1" begin="${at2(hit)}" dur="0.3s"/></text>`
+  const boom = `<text x="${(x - size * 0.55).toFixed(1)}" y="${Math.min(HEIGHT - DROP - 0.5, y + size * 0.4).toFixed(1)}" font-size="${size}" opacity="0">💥<set attributeName="opacity" to="1" begin="${at2(hit)}" dur="0.3s"/></text>`
 
   return flash + streak + dust + chips + boom
 }
@@ -1322,7 +1327,7 @@ export const stageFx = (
 // room the minis keep from the main mascot. A picture is laid out as wide as
 // its own markup says, where a blank spacer beside it may take no room.
 export const widen = (markup: string, width: number) =>
-  markup.replace(/viewBox="0 0 [\d.]+ 46" width="[\d.]+"/, `viewBox="0 0 ${width} 46" width="${width * SCALE}"`)
+  markup.replace(/viewBox="0 -?[\d.]+ [\d.]+ 46" width="[\d.]+"/, `viewBox="0 ${-DROP} ${width} 46" width="${width * SCALE}"`)
 
 // The terminal's drawing: block glyphs, three rows an actor, two frames.
 const BIG = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ ▝▝'] as const
@@ -1453,7 +1458,7 @@ export const speechBubble = (text: string, lift = 5) => {
   // 0 when hung from the slot's top.
   const left = Math.round((DESK + 0.6 * 34) * SCALE)
   const tipX = (DESK + 0.6 * 30) * SCALE
-  const tipY = lift + (20.8 + 0.6 * 9) * SCALE
+  const tipY = lift + (DROP + 20.8 + 0.6 * 9) * SCALE
   const width = left + bubbleW + 2
   const height = Math.ceil(HEIGHT * SCALE + lift)
   const baseY = 1 + bubbleH
