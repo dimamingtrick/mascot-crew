@@ -647,7 +647,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="72" y="16" width="12" height="24" fill="#6d4c41"/><rect x="71" y="14" width="14" height="3" fill="#4e342e"/><path d="M74 40 v-10 q4 -5 8 0 v10Z" fill="#ff6f00">${blink('1;0.7;1', '0.4s')}</path><circle cx="65" cy="25" r="3" fill="#ffb300"><animate attributeName="r" values="2.5;6;2.5" dur="3s" repeatCount="indefinite"/><animate attributeName="fill" values="#fff176;#ff7043;#fff176" dur="3s" repeatCount="indefinite"/></circle><circle cx="63" cy="23" r="1" fill="#fff" opacity="0.8"/>`,
   },
   {
-    name: { en: 'ice cream seller', uk: 'морозивник' },
+    name: { en: 'ice cream seller', uk: 'продавець морозива' },
     emoji: '🍦',
     prop: '🍨',
     hat: '<path d="M9 9 L12 2 H28 L31 9Z" fill="#fff" stroke="#ddd" stroke-width="0.5"/><rect x="11" y="4.5" width="18" height="1.5" fill="#f06292"/>',

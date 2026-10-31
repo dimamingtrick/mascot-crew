@@ -101,9 +101,11 @@ const SALUTE_MS = 4000
 const FRAME_MS = 300
 const ORANGE = '#D97757'
 const MAX_MINIS = 6
-// Rows of cells that cover the main mascot's height. The desktop sizes a
-// Client by what it draws, so it draws this many rows.
-const CLICK_ROWS = 4
+// Rows of cells that cover the main mascot's height (about 18 px a row on
+// the desktop against its 49). The desktop sizes a Client by what it draws,
+// so it draws this many rows; any more would stretch the band upwards and
+// leave the mascot floating over its bottom.
+const CLICK_ROWS = 3
 // The band's right corner kept clear of click regions for the gear: a
 // region there would take the gear's click and throw the weapon instead.
 const GEAR_COLUMNS = 4
