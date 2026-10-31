@@ -637,6 +637,10 @@ async function movePress($: EngineInterface, cursor: Point | undefined, hand: Po
   const target = aimedBy(pressed, cursor)
   pressed = { ...rest, ...(target === undefined ? {} : { target }), ...(follows ? { anchor: hand } : {}) }
   holdAutoLoose($)
+  // The person's weapon but the bow is the click region's to draw while
+  // held: nothing in the band moves, and a redraw of it on every move would
+  // only queue up ahead of the release.
+  if (pressed.kind === 'self' && pressed.weapon !== 'bow') return
   const at = await $.clock.now()
   if (at - aimWrittenAt >= AIM_MS) await writeAim($)
   else
@@ -1469,10 +1473,14 @@ export const register: Register = on => {
         : undefined
 
     // The weapon held ready: its own picture, over the row as far right as
-    // the person holds it, the bow aimed at the cursor.
+    // the person holds it, the bow aimed at the cursor. The person's other
+    // weapons are the click region's to draw, in the fist under the pointer
+    // and on until the strike: the band's picture stands still while the
+    // button is held, so one of its own would show only after the release,
+    // where the band last heard of it, a jump away from the fist.
     const aimW = aimNow === null ? width : Math.max(width, Math.ceil(aimNow.anchor.x + 20))
     const aimSvg =
-      aimNow === null
+      aimNow === null || (aimNow.kind === 'self' && aimNow.weapon !== undefined && aimNow.weapon !== 'bow')
         ? undefined
         : aimNow.weapon !== undefined && aimNow.weapon !== 'bow'
         ? readyWeapon(stage, aimW, aimNow.weapon, aimNow.anchor, aimNow.kind === 'self')
@@ -1506,7 +1514,7 @@ export const register: Register = on => {
               <Client
                 key="lash-backdrop"
                 module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, ...handAt(0, false) }}
+                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, lash: lastLash.n, ...handAt(0, false) }}
                 width="100%"
                 height={CLICK_ROWS}
               />
@@ -1627,7 +1635,7 @@ export const register: Register = on => {
                 <Client
                   key="lash"
                   module="./clicker.tsx"
-                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, ...handAt(0, true) }}
+                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow, lash: lastLash.n, ...handAt(0, true) }}
                   width="100%"
                   height={CLICK_ROWS}
                 />
@@ -1638,7 +1646,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${MAIN_WIDTH}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, ...handAt(MAIN_WIDTH, false) }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, lash: lastLash.n, ...handAt(MAIN_WIDTH, false) }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
@@ -1695,7 +1703,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${width}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, ...handAt(width, false) }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow, lash: lastLash.n, ...handAt(width, false) }}
                     width="100%"
                     height={CLICK_ROWS}
                   />

@@ -19,9 +19,16 @@ const HAND_LEFT = 2
 // and `fy` the pointer with the fraction of a cell, where known; `px` and
 // `py` the same where it was pressed, where the bow stays while it is held.
 type Held = { x: number; y: number; fx: number; fy: number; px: number; py: number; ticks: number }
+// The weapon just let go (but the bow), still in the fist where it was let
+// go until the band draws its strike from there: until the band's count of
+// strikes, `lash`, moves on, LET_GO_TICKS at most. Gone on the release, it
+// would leave the band's own picture, as it stood when the button went
+// down, for as long as the strike takes to come.
+type LetGo = { held: Held; lash: number; ticks: number }
+const LET_GO_TICKS = 6
 // `mainTicks`: how long the main mascot's bow has been drawn at the minis,
 // for the main mascot's own region to draw.
-type State = { held?: Held; mainTicks?: number }
+type State = { held?: Held; mainTicks?: number; letGo?: LetGo }
 // What the region needs to draw the weapon in hand as the band draws it: the
 // parts, the cell's size in the drawing's units, where the region starts in
 // them, whether it is the main mascot's, and whether busy minis are about
@@ -142,7 +149,7 @@ export const inHand = (
 }
 
 // The latest props of each instance, for its timer.
-const propsOf = new WeakMap<object, { hand?: Hand }>()
+const propsOf = new WeakMap<object, { hand?: Hand; lash?: number }>()
 // How each instance's bow turned last while held.
 const turnOf = new WeakMap<object, Turn>()
 
@@ -163,7 +170,10 @@ const turnOf = new WeakMap<object, Turn>()
 // on its bow.
 // The surface sizes the region by what it draws, so it draws `rows` blank
 // rows across the whole width.
-const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boolean; ready?: string; hand?: Hand }, State> = (
+const Clicker: ClientModule<
+  { rows: number; reportsSize?: boolean; steps?: boolean; ready?: string; hand?: Hand; lash?: number },
+  State
+> = (
   props,
   surface,
 ) => {
@@ -191,9 +201,19 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
       }
       if (propsOf.get(surface)?.hand?.onMain === true && next.mainTicks !== mainDraw)
         next = mainDraw === undefined ? { held: next.held } : { ...next, mainTicks: mainDraw }
+      const { letGo } = next
+      if (letGo !== undefined) {
+        const { letGo: _, ...rest } = next
+        const isStruck = propsOf.get(surface)?.lash !== letGo.lash || letGo.ticks + 1 >= LET_GO_TICKS
+        next = isStruck ? rest : { ...rest, letGo: { ...letGo, ticks: letGo.ticks + 1 } }
+      }
       if (next !== state) surface.setState(next)
     })
   }
+  // The region's height in rows as laid out, which the pointer's row counts
+  // from; its own before the first layout. The hooks module places the
+  // strike by the same, so it leaves from where this region drew the fist.
+  const tall = () => (surface.rows > 0 ? surface.rows : props.rows)
   surface.onPointer(event => {
     if (props.steps === true && event.button === 'left' && event.ctrl !== true) {
       if (event.type !== 'down' && event.type !== 'move' && event.type !== 'up') return
@@ -201,7 +221,11 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
         const was = surface.state?.held
         const isAtMinis = isMinisPress(props.hand)
         if (event.type === 'up') {
-          surface.setState({})
+          const { lash } = props
+          const keeps = was !== undefined && props.ready !== 'bow' && !isAtMinis && lash !== undefined
+          const fx = event.fine?.x ?? event.x + 0.5
+          const fy = event.fine?.y ?? event.y + 0.5
+          surface.setState(keeps ? { letGo: { held: { ...was, x: event.x, y: event.y, fx, fy }, lash, ticks: 0 } } : {})
           if (isAtMinis) mainDraw = undefined
         } else if (event.type === 'down' || was !== undefined) {
           const fx = event.fine?.x ?? event.x + 0.5
@@ -218,7 +242,7 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
         x: event.fine?.x ?? event.x + 0.5,
         y: event.fine?.y ?? event.y + 0.5,
         columns: surface.columns,
-        rows: surface.rows,
+        rows: tall(),
       })
 
       return
@@ -236,22 +260,24 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
       x: event.x,
       y: event.y,
       columns: surface.columns,
-      rows: surface.rows,
+      rows: tall(),
     })
   })
   const { Box, Text } = surface.elements
   const rows = Array.from({ length: props.rows }, (_, row) => <Text key={`r${row}`}> </Text>)
-  const { held, mainTicks } = surface.state ?? {}
+  const { held, mainTicks, letGo } = surface.state ?? {}
   const hand = props.hand
   // A new press turns from where it aims, not from the last one's aim.
   if (held === undefined) turnOf.delete(surface)
+  // Let go: drawn until the band's picture has the strike.
+  const inFist = held ?? (letGo !== undefined && letGo.lash === props.lash ? letGo.held : undefined)
   let drawn: { body: string; center: Point } | undefined
   if (hand !== undefined && hand.cellUnits > 0 && props.ready !== undefined) {
     const rowUnits = hand.cellUnits * CELL_ASPECT
-    const top = hand.kit.bottom - props.rows * rowUnits
-    if (held !== undefined && !isMinisPress(hand)) {
+    const top = hand.kit.bottom - tall() * rowUnits
+    if (inFist !== undefined && !isMinisPress(hand)) {
       const toDrawing = (x: number, y: number) => ({ x: hand.startsAt + x * hand.cellUnits, y: top + y * rowUnits })
-      const made = inHand(props.ready, hand, toDrawing(held.fx, held.fy), held.ticks, props.rows, toDrawing(held.px, held.py), turnOf.get(surface))
+      const made = inHand(props.ready, hand, toDrawing(inFist.fx, inFist.fy), inFist.ticks, tall(), toDrawing(inFist.px, inFist.py), turnOf.get(surface))
       if (made.turn === undefined) turnOf.delete(surface)
       else turnOf.set(surface, made.turn)
       drawn = made

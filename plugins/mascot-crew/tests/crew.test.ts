@@ -1,5 +1,7 @@
 import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
+import { HAND_KIT } from '../hooks/art'
+import Clicker from '../hooks/clicker'
 
 const BAND = {
   plugin: 'mascot-crew',
@@ -812,16 +814,97 @@ test('with the lasso, a press shows it ready in the fist, and letting go cracks 
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
   await bowStep(ui, 'down', 12.5, 2)
-  const ready = (await drawings(ui)).find(svg => svg.includes('Lasso')) ?? ''
-  // The fist two cells left of the pointer, the whip in it, nothing cracked yet.
-  expect(ready).toContain('cx=\\"84.0\\"')
-  expect(ready).toContain('repeatCount=\\"indefinite\\"')
+  // Shown ready by the click region, under the pointer; nothing cracked yet.
+  expect((await drawings(ui)).some(svg => svg.includes('Lasso') && svg.includes('indefinite'))).toBe(false)
   expect(cracks).toEqual([])
   await clock.advance(500)
   await bowStep(ui, 'up', 12.5, 2)
   expect(cracks).toEqual(['crack'])
   // The ready whip is gone; the lash's own drawing swings it.
   expect((await drawings(ui)).some(svg => svg.includes('Lasso') && svg.includes('indefinite'))).toBe(false)
+})
+
+test('on the desktop, a held lasso is drawn by the click region alone, and its lash leaves from where the fist was', async ($, on) => {
+  pin(on, 'lasso')
+  const clock = engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band & {
+    pointer: (event: { type: 'down' | 'move' | 'up'; x: number; y: number; button: 'left'; in?: string }) => Promise<void>
+    drawn: (scope: { in: string }) => Promise<unknown>
+  }
+  // 8 units a cell.
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
+  const fistOf = (drawn: string) => drawn.match(/circle cx=\\"([\d.]+)\\" cy=\\"([\d.]+)\\" r=\\"2.2\\"/)?.slice(1, 3)
+  await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
+  // Swung left toward the mascot before letting go.
+  await ui.pointer({ type: 'move', x: 9, y: 1, button: 'left', in: 'lash' })
+  await ui.pointer({ type: 'move', x: 6, y: 1, button: 'left', in: 'lash' })
+  // The band's own picture stands still while the button is held: a ready
+  // whip of its own would show only on the release, where the band last
+  // heard of it, a jump away from the fist.
+  expect((await drawings(ui)).some(svg => svg.includes('Lasso') && svg.includes('indefinite'))).toBe(false)
+  const held = fistOf(await region())
+  expect(held).toEqual(['36.0', '14.8'])
+  await clock.advance(300)
+  await ui.pointer({ type: 'up', x: 6, y: 1, button: 'left', in: 'lash' })
+  const lash = (await drawings(ui)).find(svg => svg.includes('id=\\"lash1\\"')) ?? ''
+  expect(fistOf(lash)).toEqual(held)
+  // Drawn by the band now, the region's own is gone.
+  expect(await region()).not.toContain('"type":"Svg"')
+})
+
+test('the click region keeps the weapon where it was let go until the band draws the strike', async () => {
+  const el =
+    (type: string) =>
+    (props: Record<string, unknown> | null, ...children: unknown[]) => ({ type, props: props ?? {}, children })
+  let pointer: (event: unknown) => void = () => undefined
+  const ticks: (() => void)[] = []
+  const surface = {
+    elements: { Box: el('Box'), Text: el('Text') },
+    state: undefined as unknown,
+    setState(next: unknown) {
+      surface.state = next
+    },
+    columns: 14,
+    rows: 3,
+    every: (_ms: number, fn: () => void) => {
+      ticks.push(fn)
+
+      return () => undefined
+    },
+    onPointer: (fn: (event: unknown) => void) => {
+      pointer = fn
+
+      return () => undefined
+    },
+    onKey: () => () => undefined,
+    post: () => undefined,
+  }
+  const hand = { kit: HAND_KIT, cellUnits: 8, startsAt: 0, onMain: true, minis: false }
+  const props = (lash: number, ready = 'gun') => ({ rows: 3, steps: true, ready, hand, lash })
+  const draw = (lash: number, ready?: string) => JSON.stringify(Clicker(props(lash, ready) as never, surface as never))
+  draw(4)
+  pointer({ type: 'down', x: 12, y: 2, button: 'left' })
+  pointer({ type: 'move', x: 6, y: 1, button: 'left' })
+  const held = draw(4)
+  expect(held).toContain('"type":"Svg"')
+  pointer({ type: 'up', x: 6, y: 1, button: 'left' })
+  // Let go, the band not yet redrawn: still in the fist, where it was.
+  expect(draw(4)).toBe(held)
+  // The band draws the strike: the region's own is gone at once.
+  expect(draw(5)).not.toContain('"type":"Svg"')
+  // Never left behind when the band is slow to strike.
+  pointer({ type: 'down', x: 12, y: 2, button: 'left' })
+  pointer({ type: 'up', x: 12, y: 2, button: 'left' })
+  expect(draw(5)).toContain('"type":"Svg"')
+  for (let k = 0; k < 10; k += 1) for (const tick of ticks) tick()
+  expect(draw(5)).not.toContain('"type":"Svg"')
+  // The bow, as before: gone on the release, its own loosing drawn by the band.
+  draw(5, 'bow')
+  pointer({ type: 'down', x: 12, y: 2, button: 'left' })
+  pointer({ type: 'up', x: 12, y: 2, button: 'left' })
+  expect(draw(5, 'bow')).not.toContain('"type":"Svg"')
 })
 
 test('with the bow, arrows stack up in the mascot, each one falling off a second after it hit', async ($, on) => {
