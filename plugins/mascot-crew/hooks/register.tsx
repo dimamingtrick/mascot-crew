@@ -1482,7 +1482,7 @@ export const register: Register = on => {
               <Client
                 key="lash-backdrop"
                 module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true }}
+                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow }}
                 width="100%"
                 height={CLICK_ROWS}
               />
@@ -1603,7 +1603,7 @@ export const register: Register = on => {
                 <Client
                   key="lash"
                   module="./clicker.tsx"
-                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true }}
+                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true, ready: weaponNow }}
                   width="100%"
                   height={CLICK_ROWS}
                 />
@@ -1614,7 +1614,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${MAIN_WIDTH}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
@@ -1671,7 +1671,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${width}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, steps: true }}
+                    props={{ rows: CLICK_ROWS, steps: true, ready: weaponNow }}
                     width="100%"
                     height={CLICK_ROWS}
                   />

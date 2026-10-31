@@ -885,3 +885,27 @@ test('with the bow, the click region reports a press, its moves and its release'
   expect(arrowsOf(await drawings(ui)).length).toBe(1)
   expect(played[0]).toBe('twang')
 })
+
+test('on the desktop, the region under the pointer shows the weapon in hand while held, and the bow its draw', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band & {
+    pointer: (event: { type: 'down' | 'move' | 'up'; x: number; y: number; button: 'left'; in?: string }) => Promise<void>
+    drawn: (scope: { in: string }) => Promise<unknown>
+    advance: (ms: number) => Promise<void>
+    resize: (size: { columns: number; rows: number; in?: string }) => Promise<void>
+  }
+  await ui.resize({ columns: 14, rows: 3, in: 'lash' })
+  const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
+  await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
+  expect(await region()).toContain('🏹')
+  expect(await region()).toContain('▱▱▱▱▱')
+  // The fist two cells left of the pointer, the bar a row over it.
+  expect(await region()).toContain('"left":10,"top":1')
+  await clock.advance(1200)
+  await ui.advance(1200)
+  expect(await region()).toContain('▰▰▰▰▰')
+  await ui.pointer({ type: 'up', x: 2, y: 2, button: 'left', in: 'lash' })
+  expect(await region()).not.toContain('🏹')
+})
