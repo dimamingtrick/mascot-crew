@@ -927,13 +927,19 @@ test('on the desktop, the bow stays where it was pressed while held, turning to 
   const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
   const angleOf = (drawn: string) => drawn.match(/translate\(100\.0,[\d.-]+\) rotate\(([\d.-]+)\)/)?.[1]
   await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
-  const before = angleOf(await region())
+  const pressed = await region()
+  const before = angleOf(pressed)
   expect(before).toBeDefined()
-  // Moved up and to the right: the bow is still at 100 units, aimed anew.
+  expect(pressed).not.toContain('additive=\\"sum\\"')
+  // Moved up and to the right: the bow is still at 100 units, aimed anew,
+  // and sweeps there from the last aim rather than jumping.
   await ui.pointer({ type: 'move', x: 13, y: 0, button: 'left', in: 'lash' })
-  const after = angleOf(await region())
+  const moved = await region()
+  const after = angleOf(moved)
   expect(after).toBeDefined()
   expect(after).not.toBe(before)
+  expect(moved).toContain('additive=\\"sum\\"')
+  expect(moved).toContain('to=\\"0\\" dur=\\"120ms\\"')
   await ui.pointer({ type: 'up', x: 13, y: 0, button: 'left', in: 'lash' })
 })
 

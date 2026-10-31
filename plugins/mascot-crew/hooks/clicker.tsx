@@ -43,16 +43,43 @@ const SHAKE =
 const TREMBLE =
   '<animateTransform attributeName="transform" type="rotate" values="0;1.2;-1.2;0" dur="0.12s" repeatCount="indefinite"/>'
 
+// How long the bow takes to turn to a new aim: the pointer comes a cell at a
+// time where the surface knows no finer, and the bow sweeps between them.
+const TURN_MS = 120
+// A turn under way: from `from` degrees to `to`, started `at`.
+type Turn = { from: number; to: number; at: number }
+// The shorter way from `a` to `b`, in degrees.
+const turnBy = (a: number, b: number) => ((((b - a) % 360) + 540) % 360) - 180
+const angleAt = (turn: Turn, now: number) =>
+  turn.from + turnBy(turn.from, turn.to) * Math.min(1, Math.max(0, (now - turn.at) / TURN_MS))
+// The bow's turn for this redraw toward `angle`: where it starts (as drawn
+// now, mid-turn too) and for how long, or none when it is already there.
+const turnToward = (last: Turn | undefined, angle: number, now: number): { turn: Turn; sweep?: { from: number; ms: number } } => {
+  if (last === undefined) return { turn: { from: angle, to: angle, at: now } }
+  const shown = angleAt(last, now)
+  if (Math.abs(turnBy(last.to, angle)) > 0.05) return { turn: { from: shown, to: angle, at: now }, sweep: { from: shown, ms: TURN_MS } }
+  const left = TURN_MS - (now - last.at)
+
+  return left > 0 ? { turn: last, sweep: { from: shown, ms: left } } : { turn: last }
+}
+
 const powerOf = (ticks: number) => Math.min(1, Math.max(0.06, (ticks * TICK_MS) / FULL_DRAW_MS))
 const drawBar = (at: Point, power: number) =>
   `<rect x="${f1(at.x - 8)}" y="${f1(at.y)}" width="16" height="2" rx="1" fill="#000" opacity="0.25"/>` +
   `<rect x="${f1(at.x - 8)}" y="${f1(at.y)}" width="${f1(16 * power)}" height="2" rx="1" fill="${power >= 1 ? '#e53935' : '#ffd54a'}"/>`
-const drawBow = (kit: HandKit, at: Point, angle: number, power: number, scale: number) => {
+const drawBow = (kit: HandKit, at: Point, angle: number, power: number, scale: number, sweep?: { from: number; ms: number }) => {
   const pull = kit.pull * power
   const string = `<path d="M-4.5 -10.5 L${(-4.5 - pull).toFixed(2)} 0 L-4.5 10.5" stroke="#eceff1" stroke-width="0.55" fill="none"/>`
   const arrow = `<g transform="translate(${(-4.5 - pull + 15).toFixed(2)},0)">${kit.arrow}</g>`
 
-  return `<g transform="translate(${f1(at.x)},${f1(at.y)}) rotate(${angle.toFixed(1)})${scale === 1 ? '' : ` scale(${scale})`}"><g>${power >= 1 ? TREMBLE : ''}${string}${kit.limbs}${arrow}</g></g>`
+  // Turning: the rest of the way from where it was drawn, laid over the
+  // aim (the scale is even, so the order does not matter).
+  const turning =
+    sweep === undefined
+      ? ''
+      : `<animateTransform attributeName="transform" type="rotate" additive="sum" from="${turnBy(angle, sweep.from).toFixed(1)}" to="0" dur="${Math.round(sweep.ms)}ms" fill="freeze"/>`
+
+  return `<g transform="translate(${f1(at.x)},${f1(at.y)}) rotate(${angle.toFixed(1)})${scale === 1 ? '' : ` scale(${scale})`}">${turning}<g>${power >= 1 ? TREMBLE : ''}${string}${kit.limbs}${arrow}</g></g>`
 }
 
 // The main mascot's bow at the minis, laid right over the one it holds in
@@ -68,8 +95,19 @@ export const mainBow = (kit: HandKit, ticks: number) => {
 // it was pressed, drawn as far as it has been held and aimed at the pointer
 // (or, close to it, at the main mascot), as the hooks module shoots it; the
 // revolver by the pointer at the main mascot's feet, the whip or a tomato
-// raised there. Returns the markup and the point it is around.
-export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number, rows: number, pressedAt: Point = cursor) => {
+// raised there. Returns the markup and the point it is around. `turn` is
+// how the bow turned last, for it to sweep to its new aim; the turn it is
+// now on comes back.
+export const inHand = (
+  weapon: string,
+  hand: Hand,
+  cursor: Point,
+  ticks: number,
+  rows: number,
+  pressedAt: Point = cursor,
+  turn?: Turn,
+  now = Date.now(),
+): { body: string; center: Point; turn?: Turn } => {
   const { kit } = hand
   const fist = (p: Point, r = 2.2) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r}" fill="#5b3a1e"/>`
   const at = (p: Point, inner: string) => `<g transform="translate(${f1(p.x)},${f1(p.y)})">${inner}</g>`
@@ -81,8 +119,9 @@ export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number,
     const angle = (Math.atan2(target.y - anchor.y, target.x - anchor.x) * 180) / Math.PI
     const power = powerOf(ticks)
     const bar = drawBar({ x: anchor.x, y: Math.max(top, anchor.y - 15) }, power)
+    const next = turnToward(turn, angle, now)
 
-    return { body: bar + drawBow(kit, anchor, angle, power, 1) + fist(anchor, 2.4), center: anchor }
+    return { body: bar + drawBow(kit, anchor, angle, power, 1, next.sweep) + fist(anchor, 2.4), center: anchor, turn: next.turn }
   }
   const grip = { x: cursor.x - HAND_LEFT * hand.cellUnits, y: clamp(cursor.y, top + 2, kit.bottom - 2) }
   if (weapon === 'gun') {
@@ -102,6 +141,8 @@ export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number,
 
 // The latest props of each instance, for its timer.
 const propsOf = new WeakMap<object, { hand?: Hand }>()
+// How each instance's bow turned last while held.
+const turnOf = new WeakMap<object, Turn>()
 
 // A see-through region laid over the band. It posts to the hooks module:
 // - `{ button, x, y, columns, rows }` for a click: left or right (the right
@@ -200,13 +241,18 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
   const rows = Array.from({ length: props.rows }, (_, row) => <Text key={`r${row}`}> </Text>)
   const { held, mainTicks } = surface.state ?? {}
   const hand = props.hand
+  // A new press turns from where it aims, not from the last one's aim.
+  if (held === undefined) turnOf.delete(surface)
   let drawn: { body: string; center: Point } | undefined
   if (hand !== undefined && hand.cellUnits > 0 && props.ready !== undefined) {
     const rowUnits = hand.cellUnits * CELL_ASPECT
     const top = hand.kit.bottom - props.rows * rowUnits
     if (held !== undefined && !isMinisPress(hand)) {
       const toDrawing = (x: number, y: number) => ({ x: hand.startsAt + x * hand.cellUnits, y: top + y * rowUnits })
-      drawn = inHand(props.ready, hand, toDrawing(held.fx, held.fy), held.ticks, props.rows, toDrawing(held.px, held.py))
+      const made = inHand(props.ready, hand, toDrawing(held.fx, held.fy), held.ticks, props.rows, toDrawing(held.px, held.py), turnOf.get(surface))
+      if (made.turn === undefined) turnOf.delete(surface)
+      else turnOf.set(surface, made.turn)
+      drawn = made
     } else if (mainTicks !== undefined && hand.onMain && props.ready === 'bow') drawn = mainBow(hand.kit, mainTicks)
   }
   let drawnInHand = null
