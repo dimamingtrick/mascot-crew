@@ -389,6 +389,7 @@ test('the crew pane shows each mini as a card: its picture, task, model, status 
 })
 
 type Band = Drawing & {
+  unmount: () => Promise<void>
   post: (data: unknown, scope?: { in?: string }) => Promise<void>
   findAll: (q: { type: string }) => Promise<unknown[]>
 }
@@ -583,4 +584,27 @@ test('the band speaks English until its gear picks Ukrainian, which the next ses
   await $.turn.start({ text: 'go', turnId: 't2' })
   const again = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Gear
   expect(await label(again, 'whip')).toContain('ШВИДШЕ')
+})
+
+test('quick tomato clicks each throw one more, none cutting the others short', async ($, on) => {
+  pin(on, 'tomato')
+  const clock = engine(on)
+  const played = squelches(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
+  for (const x of [40, 50, 60]) {
+    await ui.post({ button: 'left', x, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
+    await clock.advance(100)
+  }
+  const tomato = (await drawings(ui)).find(svg => svg.includes('Tomato')) ?? ''
+  for (const n of [1, 2, 3]) expect(tomato).toContain(`id=\\"lash${n}\\"`)
+  expect(tomato.split('<animateMotion').length - 1).toBe(3)
+  await clock.advance(1000)
+  expect(played()).toBe(3)
+  // Once they have all dripped away, the band drawn again draws none.
+  await clock.advance(2000)
+  await ui.unmount()
+  const again = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  expect((await drawings(again)).some(svg => svg.includes('Tomato'))).toBe(false)
 })

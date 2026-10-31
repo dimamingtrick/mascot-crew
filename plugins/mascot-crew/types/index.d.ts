@@ -47,6 +47,18 @@ export type Lash = {
   shots?: number
 }
 
+// One click's tomatoes, while any is still in the air or dripping: `n`
+// the click's number, `at` when it came, `row` the row it was thrown over,
+// `from` where the person's hand was, `shots` how many minis were hit.
+export type Toss = {
+  n: number
+  kind: 'minis' | 'self'
+  row: string
+  at: number
+  from?: { x: number; y: number }
+  shots: number
+}
+
 // The punishments a click picks from.
 export type Weapon = 'lasso' | 'gun' | 'tomato'
 
@@ -72,6 +84,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null; lang: Lang; isGearOpen: boolean }
+    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null; lang: Lang; isGearOpen: boolean; tosses: Toss[] }
   }
 }

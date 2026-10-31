@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, Elements, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Lang, Lash, Mini, Popup, Scene, Weapon, Whip } from '../types'
+import type { Lang, Lash, Mini, Popup, Scene, Toss, Weapon, Whip } from '../types'
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
@@ -39,6 +39,8 @@ import {
   termMini,
   waiting,
   stageFx,
+  tomatoFx,
+  farthestToss,
   working,
 } from './art'
 import type { Words } from './i18n'
@@ -77,6 +79,10 @@ const arm = ($: EngineInterface, weapon: Weapon | null) => $.state.set(ARMED, we
 // whether the gear's menu for it is open.
 const lang = atom({ plugin: 'mascot-crew', key: 'lang' } as const, DEFAULT_LANG as Lang)
 const isGearOpen = atom({ plugin: 'mascot-crew', key: 'isGearOpen' } as const, false)
+// The tomatoes still in the air or dripping, one entry a click: a quick
+// click throws another without cutting the last ones short.
+const tosses = atom({ plugin: 'mascot-crew', key: 'tosses' } as const, [] as Toss[])
+const isFlying = (toss: Toss, at: number) => at - toss.at < tossMs(toss.shots) + 150
 const LANG_KEY = 'lang'
 const wordsOf = async ($: EngineInterface): Promise<Words> => WORDS[await read($, lang)] ?? WORDS[DEFAULT_LANG]
 
@@ -422,6 +428,11 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
     ...(weapon === 'gun' ? { hitX, shots } : weapon === 'tomato' ? { shots } : {}),
   }))
   await update($, whip, () => kind)
+  if (weapon === 'tomato') {
+    const { n } = await read($, lash)
+    const toss: Toss = { n, kind, row: rowOf(now), at, shots, ...(from === undefined ? {} : { from }) }
+    await update($, tosses, list => [...list.filter(one => isFlying(one, at)), toss])
+  }
   if (weapon === 'gun') {
     for (let k = 0; k < shots; k += 1) {
       const bang = () => void $.audio.play({ asset: 'sounds/gunshot.wav' }).catch(() => undefined)
@@ -1050,7 +1061,13 @@ export const register: Register = on => {
         : { source: saluting(job), alt: w.saluting }
     const sinceEnter = at - now.enterAt
     const last = await read($, lash)
-    const isFresh = last.n > 0 && last.row === rowOf(now) && at - last.at < freshFor(last)
+    // With tomatoes, every throw still flying, over the row as it stands.
+    const flying =
+      last.weapon === 'tomato' ? (await read($, tosses)).filter(one => one.row === rowOf(now) && isFlying(one, at)) : []
+    const isFresh =
+      last.weapon === 'tomato'
+        ? flying.length > 0
+        : last.n > 0 && last.row === rowOf(now) && at - last.at < freshFor(last)
     // A fresh shot: when (in seconds of a drawing loaded now) shot `k` lands,
     // making whoever it hit hop.
     const isShot = isFresh && last.weapon === 'gun'
@@ -1089,15 +1106,20 @@ export const register: Register = on => {
     const openCard = open !== null && openMini !== undefined
       ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at, w, language)
       : undefined
-    const fxW = fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
+    const fxW =
+      last.weapon === 'tomato'
+        ? fxWidth(stage, farthestToss(flying))
+        : fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
     // The click regions reach as far as the lash's drawing: a picture takes
     // clicks, and the next click where the lash still flies must reach them.
     const reach = Math.max(width, fxW)
     const hitPct = (w: number) => `${Math.floor((w / reach) * 100)}%`
     mainRegionUnits = (Math.floor((MAIN_WIDTH / reach) * 100) / 100) * reach
     const fx =
-      isFresh || leavers.length > 0
-        ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
+      flying.length > 0
+        ? tomatoFx(stage, flying.map(one => ({ ...one, elapsed: (at - one.at) / 1000 })), leavers)
+        : isFresh || leavers.length > 0
+          ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
         : undefined
 
     // Each actor keeps its own drawing in its own keyed place; a lash is a

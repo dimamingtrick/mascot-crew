@@ -1204,6 +1204,34 @@ export const hopping = (drawing: string, begin: number, isMini = false) => {
 export type Leaver = { fromX: number; elapsed: number; job: Job }
 
 // The overlay across the whole row: the minis walking home, and a fresh lash.
+// One click's tomatoes, `elapsed` seconds after it: the person's at the
+// main mascot, or the main mascot's at each busy mini.
+export type Toss = { n: number; kind: 'minis' | 'self'; elapsed: number; from?: { x: number; y: number } }
+
+const tossed = (stage: Stage, toss: Toss) => {
+  const body =
+    toss.kind === 'self'
+      ? personTomato(toss.from ?? { x: stage.mainWidth - 6, y: 12 })
+      : crewTomatoes(stage.minis.flatMap((mini, i) => (mini.isBusy ? [stage.mainWidth + i * MINI_WIDTH] : [])))
+
+  return shiftTime(`<g id="lash${toss.n}">${body}</g>`, toss.elapsed)
+}
+
+// Where a tomato flies from farthest right: the drawing reaches that far.
+export const farthestToss = (tosses: readonly Pick<Toss, 'kind' | 'from'>[]) =>
+  tosses.reduce<{ x: number } | undefined>(
+    (far, toss) => (toss.kind === 'self' && toss.from !== undefined && toss.from.x > (far?.x ?? -1) ? toss.from : far),
+    undefined,
+  )
+
+// Every tomato still in the air or dripping, each from its own click and
+// as far on as it already got: a new throw never cuts one short.
+export const tomatoFx = (stage: Stage, tosses: readonly Toss[], leavers: readonly Leaver[]) =>
+  svg(
+    fxWidth(stage, farthestToss(tosses)),
+    leavers.map(one => walkingHome(one.fromX, one.elapsed, one.job)).join('') + tosses.map(toss => tossed(stage, toss)).join(''),
+  )
+
 export const stageFx = (
   stage: Stage,
   lash:
@@ -1225,16 +1253,7 @@ export const stageFx = (
   // Loaded again part way through, the lash goes on from where it was rather
   // than cracking a second time.
   const at = (markup: string) => shiftTime(markup, lash.elapsed)
-  if (lash.weapon === 'tomato') {
-    if (lash.kind === 'self') {
-      const from = lash.from ?? { x: stage.mainWidth - 6, y: 12 }
-
-      return svg(width, `${home}${at(`<g id="lash${lash.n}">${personTomato(from)}</g>`)}`)
-    }
-    const busy = stage.minis.flatMap((mini, i) => (mini.isBusy ? [stage.mainWidth + i * MINI_WIDTH] : []))
-
-    return svg(width, `${home}${at(`<g id="lash${lash.n}">${crewTomatoes(busy)}</g>`)}`)
-  }
+  if (lash.weapon === 'tomato') return tomatoFx(stage, [lash], leavers)
   if (lash.weapon === 'gun') {
     if (lash.kind === 'self') {
       const from = lash.from ?? { x: stage.mainWidth - 8, y: 28 }
