@@ -87,12 +87,14 @@ export type Flight = {
 // the main mascot, or the main mascot at the minis), since when, where it is
 // held and where the cursor points it. `weapon`: what is held (the bow when
 // not set: its string is drawn the whole time). `isAtMain`: pressed on the
-// main mascot itself.
+// main mascot itself. `pressedAt`: where the person pressed for their bow,
+// held right of it; while the cursor is still there it aims at the mascot.
 export type Aim = {
   kind: 'minis' | 'self'
   at: number
   anchor: Point
   target?: Point
+  pressedAt?: Point
   weapon?: Weapon
   isAtMain?: boolean
 }

@@ -9,8 +9,8 @@ let heldSince = 0
 const HOLD_MS = 2000
 
 // How far the bow is drawn while held: full in FULL_DRAW_MS, as the hooks
-// module counts it.
-const FULL_DRAW_MS = 1000
+// module counts it (its FULL_DRAW).
+const FULL_DRAW_MS = 2000
 const TICK_MS = 100
 // How many cells left of the pointer the hand is, as the hooks module draws it.
 const HAND_LEFT = 2
@@ -91,8 +91,8 @@ export const mainBow = (kit: HandKit, ticks: number) => {
   return { body: drawBar({ x: at.x, y: at.y - 15 }, power) + drawBow(kit, at, 0, power, kit.mainBow), center: at }
 }
 
-// The person's weapon in their fist, in the drawing's units: the bow where
-// it was pressed, drawn as far as it has been held and aimed at the pointer
+// The person's weapon in their fist, in the drawing's units: the bow right
+// of where it was pressed, drawn as far as it has been held and aimed at the pointer
 // (or, close to it, at the main mascot), as the hooks module shoots it; the
 // revolver by the pointer at the main mascot's feet, the whip or a tomato
 // raised there. Returns the markup and the point it is around. `turn` is
@@ -113,8 +113,10 @@ export const inHand = (
   const at = (p: Point, inner: string) => `<g transform="translate(${f1(p.x)},${f1(p.y)})">${inner}</g>`
   const top = kit.bottom - rows * hand.cellUnits * CELL_ASPECT
   if (weapon === 'bow') {
-    const anchor = { x: Math.max(kit.personBowX, pressedAt.x), y: clamp(pressedAt.y, 4, 36) }
-    const isNear = Math.hypot(cursor.x - anchor.x, cursor.y - anchor.y) < 3
+    const anchor = { x: Math.max(kit.personBowX, pressedAt.x + kit.personBowRight), y: clamp(pressedAt.y, 4, 36) }
+    // Still where it was pressed: aimed at the mascot, as the hooks module
+    // shoots it.
+    const isNear = Math.hypot(cursor.x - pressedAt.x, cursor.y - pressedAt.y) < 3
     const target = isNear ? kit.chest : cursor
     const angle = (Math.atan2(target.y - anchor.y, target.x - anchor.x) * 180) / Math.PI
     const power = powerOf(ticks)

@@ -44,6 +44,7 @@ import {
   farthestToss,
   working,
   MAIN_HAND,
+  PERSON_BOW_RIGHT,
   PERSON_BOW_X,
   aimAngle,
   arrowFx,
@@ -560,12 +561,20 @@ const handOf = (step: PressStep, startsAt: number) =>
     ? undefined
     : pointOf({ button: 'left', x: step.x - 0.5 + startsAt / cellUnits, y: step.y - 0.5, columns: step.columns, rows: step.rows })
 
-// Where the person holds their bow: where they pressed, but clear of the
-// main mascot and inside the band's height.
+// Where the person holds their bow: right of where they pressed, for the
+// pointer to aim it, but clear of the main mascot and inside the band's
+// height.
 const personBow = (at?: Point): Point =>
   at === undefined
     ? { x: MAIN_WIDTH - 8, y: 24 }
-    : { x: Math.max(PERSON_BOW_X, at.x), y: Math.min(36, Math.max(4, at.y)) }
+    : { x: Math.max(PERSON_BOW_X, at.x + PERSON_BOW_RIGHT), y: Math.min(36, Math.max(4, at.y)) }
+
+// What the cursor aims a press at: nothing (the mascot, then) while it is
+// still where the person pressed for their bow, held right of it.
+const aimedBy = (aim: Pick<Aim, 'pressedAt'>, cursor: Point | undefined) =>
+  cursor === undefined || (aim.pressedAt !== undefined && Math.hypot(cursor.x - aim.pressedAt.x, cursor.y - aim.pressedAt.y) < 3)
+    ? undefined
+    : cursor
 
 // Where the main mascot's hand is, holding its weapon.
 const MAIN_GRIP: Point = { x: 39, y: 25 }
@@ -594,6 +603,8 @@ async function startPress($: EngineInterface, cursor: Point | undefined, hand: P
   const weapon = held ?? (await pickWeapon($))
   if (held === null) await arm($, weapon)
   const isBow = weapon === 'bow'
+  const pressedAt = kind === 'self' && isBow ? cursor : undefined
+  const target = aimedBy({ pressedAt }, cursor)
   pressed = {
     kind,
     at: await $.clock.now(),
@@ -607,7 +618,8 @@ async function startPress($: EngineInterface, cursor: Point | undefined, hand: P
           : (hand ?? { x: MAIN_WIDTH - 8, y: 24 }),
     weapon,
     isAtMain,
-    ...(cursor === undefined ? {} : { target: cursor }),
+    ...(pressedAt === undefined ? {} : { pressedAt }),
+    ...(target === undefined ? {} : { target }),
   }
   await update($, popup, () => null)
   await update($, isGearOpen, () => false)
@@ -621,7 +633,9 @@ async function startPress($: EngineInterface, cursor: Point | undefined, hand: P
 async function movePress($: EngineInterface, cursor: Point | undefined, hand: Point | undefined) {
   if (pressed === undefined || cursor === undefined) return
   const follows = pressed.kind === 'self' && pressed.weapon !== 'bow' && hand !== undefined
-  pressed = { ...pressed, target: cursor, ...(follows ? { anchor: hand } : {}) }
+  const { target: _, ...rest } = pressed
+  const target = aimedBy(pressed, cursor)
+  pressed = { ...rest, ...(target === undefined ? {} : { target }), ...(follows ? { anchor: hand } : {}) }
   holdAutoLoose($)
   const at = await $.clock.now()
   if (at - aimWrittenAt >= AIM_MS) await writeAim($)
@@ -649,7 +663,7 @@ async function releasePress($: EngineInterface, cursor: Point | undefined, hand:
   const heldMs = (await $.clock.now()) - held.at
   if (heldMs >= SNAP_MS) isHoldSeen = true
   const power = isHoldSeen ? drawPower(heldMs / 1000) : SNAP_POWER
-  await shootArrow($, held.kind, held.anchor, cursor ?? held.target, power)
+  await shootArrow($, held.kind, held.anchor, cursor === undefined ? held.target : aimedBy(held, cursor), power)
 }
 
 // With no cursor to aim by (the terminal's button): the person shoots from

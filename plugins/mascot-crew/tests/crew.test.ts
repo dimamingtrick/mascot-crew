@@ -736,17 +736,19 @@ test('with the bow, a press draws the string, the cursor aims it, and letting go
   const played = clips(on)
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
-  // 8 units a cell: the press is 100 units right, 23 down.
+  // 8 units a cell: the press is 100 units right, 23 down; the bow is held
+  // 12 units right of it.
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
   await bowStep(ui, 'down', 12.5, 2)
   const drawn = (await drawings(ui)).find(svg => svg.includes('Bow and arrow')) ?? ''
-  // The person's fist holds the bow where they pressed, its string drawing.
-  expect(drawn).toContain('cx=\\"100.0\\"')
+  // The person's fist holds the bow right of where they pressed, its string
+  // drawing.
+  expect(drawn).toContain('cx=\\"112.0\\"')
   expect(drawn).toContain('attributeName=\\"d\\"')
   expect(played).toEqual([])
   // Aimed left at the mascot, drawn to full, let go.
   await bowStep(ui, 'move', 2, 2)
-  await clock.advance(1100)
+  await clock.advance(2100)
   await bowStep(ui, 'up', 2, 2)
   const all = await drawings(ui)
   const arrow = arrowsOf(all)
@@ -769,7 +771,7 @@ test('with the bow, a weak shot from far away falls short: no thud', async ($, o
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
   // A real hold first: from now on, how long it is held is how hard it shoots.
   await bowStep(ui, 'down', 12.5, 2)
-  await clock.advance(1100)
+  await clock.advance(2100)
   await bowStep(ui, 'up', 2, 2)
   await clock.advance(4000)
   expect(played).toEqual(['twang', 'thud'])
@@ -789,8 +791,9 @@ test('with the bow, a press and release that come together shoot a strong arrow 
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
-  // Only the release reaches the mod, far out on the bare band.
-  await bowStep(ui, 'up', 40, 2, 'lash-backdrop')
+  // Only the release reaches the mod, out on the bare band (from much
+  // farther a quick shot falls short).
+  await bowStep(ui, 'up', 25, 2, 'lash-backdrop')
   expect(arrowsOf(await drawings(ui)).length).toBe(1)
   await clock.advance(1000)
   expect(played).toEqual(['twang', 'thud'])
@@ -899,13 +902,14 @@ test('on the desktop, the region under the pointer draws the weapon in hand whil
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
   const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
   await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
-  // The bow in the fist where it was pressed (100 units in), barely drawn.
+  // The bow in the fist right of where it was pressed (100 units in, the bow
+  // 12 more), barely drawn.
   const pressed = await region()
   expect(pressed).toContain('"type":"Svg"')
-  expect(pressed).toContain('translate(100.0,')
+  expect(pressed).toContain('translate(112.0,')
   expect(pressed).toContain('width=\\"1.0\\"')
-  await clock.advance(1200)
-  await ui.advance(1200)
+  await clock.advance(2200)
+  await ui.advance(2200)
   // Drawn to full: the bar is red, the bow trembles.
   const full = await region()
   expect(full).toContain('#e53935')
@@ -925,13 +929,13 @@ test('on the desktop, the bow stays where it was pressed while held, turning to 
   // 8 units a cell.
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
   const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
-  const angleOf = (drawn: string) => drawn.match(/translate\(100\.0,[\d.-]+\) rotate\(([\d.-]+)\)/)?.[1]
+  const angleOf = (drawn: string) => drawn.match(/translate\(112\.0,[\d.-]+\) rotate\(([\d.-]+)\)/)?.[1]
   await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
   const pressed = await region()
   const before = angleOf(pressed)
   expect(before).toBeDefined()
   expect(pressed).not.toContain('additive=\\"sum\\"')
-  // Moved up and to the right: the bow is still at 100 units, aimed anew,
+  // Moved up and to the right: the bow is still at 112 units, aimed anew,
   // and sweeps there from the last aim rather than jumping.
   await ui.pointer({ type: 'move', x: 13, y: 0, button: 'left', in: 'lash' })
   const moved = await region()
@@ -960,10 +964,10 @@ test('on the desktop, a press that has the mascot shoot at the minis draws the s
   await ui.pointer({ type: 'down', x: 1, y: 2, button: 'left', in: 'lash-backdrop' })
   await ui.advance(500)
   expect(await region('lash-backdrop')).not.toContain('"type":"Svg"')
-  // The mascot's own region draws its bow where it holds it, half drawn.
+  // The mascot's own region draws its bow where it holds it, a quarter drawn.
   const main = await region('lash')
   expect(main).toContain('translate(41.0,25.0) rotate(0.0) scale(0.8)')
-  expect(main).toContain('width=\\"8.0\\"')
+  expect(main).toContain('width=\\"4.0\\"')
   await ui.pointer({ type: 'up', x: 1, y: 2, button: 'left', in: 'lash-backdrop' })
   await ui.advance(100)
   expect(await region('lash')).not.toContain('"type":"Svg"')

@@ -1233,8 +1233,8 @@ const crewTomatoes = (busy: readonly number[]) =>
 // two by how far it was drawn, and falls at ARROW_G. One stuck in someone
 // stays STUCK, then falls off to the ground over FALL and lies there LIE
 // before it fades; one in the ground stays IN_GROUND.
-export const FULL_DRAW = 1
-const ARROW_SPEED = { min: 130, max: 900 }
+export const FULL_DRAW = 2
+const ARROW_SPEED = { min: 110, max: 650 }
 const ARROW_G = 140
 const STUCK = 1
 const FALL = 0.35
@@ -1249,8 +1249,10 @@ export const MAIN_HAND: Point = { x: 42, y: 25 }
 const MAIN_BOW = 0.8
 const MAIN_CHEST: Point = { x: 22, y: 27 }
 const miniChest = (x: number): Point => ({ x: x + DESK + 12, y: 32 })
-// The person's bow is held at least this far right, clear of the mascot.
+// The person's bow is held at least this far right, clear of the mascot,
+// and PERSON_BOW_RIGHT right of where they pressed, for the pointer to aim it.
 export const PERSON_BOW_X = 74
+export const PERSON_BOW_RIGHT = 12
 
 // How far the string is drawn after `heldS` seconds: a quick click still
 // looses a weak arrow.
@@ -1437,6 +1439,7 @@ export const HAND_KIT = {
   tomato: TOMATO,
   whip: HELD_WHIP,
   personBowX: PERSON_BOW_X,
+  personBowRight: PERSON_BOW_RIGHT,
   // Where the main mascot holds its bow while it waits, as `held` draws it.
   mainBowAt: { x: 41, y: 25 },
   chest: MAIN_CHEST,
