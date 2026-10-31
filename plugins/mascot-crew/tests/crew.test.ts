@@ -574,9 +574,14 @@ test('the band speaks English until its gear picks Ukrainian, which the next ses
   const desk = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Gear
   expect(await desk.find({ key: 'gear-button' })).toBeDefined()
   expect((await drawings(desk)).some(svg => svg.includes('Клод працює'))).toBe(true)
+  expect(await desk.find({ key: 'lash-backdrop' })).toBeDefined()
   await desk.press({ key: 'gear-button' })
+  // While its menu is open, no click region can take a click meant for it.
+  expect(await desk.find({ key: 'lash-backdrop' })).toBeUndefined()
+  expect(await desk.find({ key: 'lash' })).toBeUndefined()
   await desk.press({ key: 'lang-en' })
   expect((await drawings(desk)).some(svg => svg.includes('Claude at work'))).toBe(true)
+  expect(await desk.find({ key: 'lash-backdrop' })).toBeDefined()
   expect(stored.get('lang')).toBe('en')
   // A new session reads it back.
   stored.set('lang', 'uk')

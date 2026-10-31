@@ -104,6 +104,9 @@ const MAX_MINIS = 6
 // Rows of cells that cover the main mascot's height. The desktop sizes a
 // Client by what it draws, so it draws this many rows.
 const CLICK_ROWS = 4
+// The band's right corner kept clear of click regions for the gear: a
+// region there would take the gear's click and throw the weapon instead.
+const GEAR_COLUMNS = 4
 // How often the stage is checked against the engine's own record of its
 // agents, and how long one asked-about mini is left alone after.
 const SWEEP_MS = 2000
@@ -1027,6 +1030,9 @@ export const register: Register = on => {
     // A click on the main mascot cracks the whip, where the surface can take
     // the click (a Client); elsewhere the FASTER button does.
     const Client = 'Client' in elements ? elements.Client : undefined
+    // While the gear's menu is open, no click regions: its buttons alone take
+    // the clicks, whatever lies under them.
+    const showsRegions = Client !== undefined && !gearOpen
     const handoffLeft = now.handoffAt + FINISH_MS - at
     // A fresh lash at the minis takes the whip out of the main mascot's hand
     // for the swing that the whip's own drawing shows.
@@ -1129,17 +1135,20 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" alignItems="flex-start" width="100%">
         {Client === undefined && <Button key="whip" label={w.faster} plain onPress={onWhip} />}
-        {Client !== undefined && (
-          // Under everything else, across the whole band: a click on the
-          // bare band cracks the whip.
-          <Box key="backdrop" position="absolute" bottom={0} left={0} width="100%">
-            <Client
-              key="lash-backdrop"
-              module="./clicker.tsx"
-              props={{ rows: CLICK_ROWS, reportsSize: true }}
-              width="100%"
-              height={CLICK_ROWS}
-            />
+        {Client !== undefined && showsRegions && (
+          // Under everything else, across the whole band but the gear's
+          // corner: a click on the bare band cracks the whip.
+          <Box key="backdrop" position="absolute" bottom={0} left={0} width="100%" flexDirection="row">
+            <Box key="backdrop-click" flexGrow={1}>
+              <Client
+                key="lash-backdrop"
+                module="./clicker.tsx"
+                props={{ rows: CLICK_ROWS, reportsSize: true }}
+                width="100%"
+                height={CLICK_ROWS}
+              />
+            </Box>
+            <Box key="gear-room" width={GEAR_COLUMNS} height={CLICK_ROWS} />
           </Box>
         )}
         {gearOpen && (
@@ -1220,7 +1229,7 @@ export const register: Register = on => {
               />
             </Box>
           )}
-          {Client !== undefined && (
+          {Client !== undefined && showsRegions && (
             // Over everything, the whip's layer included, so every click
             // lands: one region over the main mascot (a lash), one over each
             // working mini (its pane, its menu), and each mini's bubble shown
