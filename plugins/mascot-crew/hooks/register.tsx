@@ -1456,7 +1456,9 @@ export const register: Register = on => {
     // clicks, and the next click where the lash still flies must reach them.
     const reach = Math.max(width, fxW)
     const hitPct = (w: number) => `${Math.floor((w / reach) * 100)}%`
-    mainRegionUnits = (Math.floor((MAIN_WIDTH / reach) * 100) / 100) * reach
+    // The main region's share of the regions' row, which is itself a whole
+    // percent of the band's width, rounded up as laid out below.
+    mainRegionUnits = (Math.floor((MAIN_WIDTH / reach) * 100) / 100) * (Math.ceil((reach / width) * 100) / 100) * width
     const fx =
       flyingArrows.length > 0
         ? arrowFx(stage, flyingArrows.map(one => ({ ...one, elapsed: (at - one.at) / 1000 })), leavers)

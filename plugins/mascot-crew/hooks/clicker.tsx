@@ -261,18 +261,22 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
   if (drawn !== undefined && hand !== undefined) {
     // The band's own picture, laid where the region sits over it: from the
     // band's bottom, which the region shares, up the band's height, and from
-    // a whole cell, the picture's own frame moved to match.
+    // the region's left edge, which the band draws at `startsAt`. Laid from
+    // a cell instead, it would go by `cellUnits`, only an estimate of a
+    // cell's width, and on the release the band's own bow would jump from
+    // it. Only what reaches left of the region goes from a cell.
     const { kit, cellUnits, startsAt } = hand
-    const left = Math.floor((drawn.center.x - BOX / 2 - startsAt) / cellUnits)
+    const left = Math.min(0, Math.floor((drawn.center.x - BOX / 2 - startsAt) / cellUnits))
     const x0 = startsAt + left * cellUnits
-    const width = BOX * kit.scale
+    const span = Math.max(BOX, drawn.center.x + BOX / 2 - x0)
+    const width = span * kit.scale
     const height = kit.height * kit.scale
     // An Svg built by hand: the region's table has none, and the desktop
     // draws one here as it does in the band.
     const picture = {
       type: 'Svg',
       props: {
-        source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f1(x0)} ${f1(kit.bottom - kit.height)} ${BOX} ${kit.height}" width="${f1(width)}" height="${f1(height)}">${drawn.body}</svg>`,
+        source: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f1(x0)} ${f1(kit.bottom - kit.height)} ${f1(span)} ${kit.height}" width="${f1(width)}" height="${f1(height)}">${drawn.body}</svg>`,
         alt: props.ready,
         width,
         height,

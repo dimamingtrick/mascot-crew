@@ -935,6 +935,10 @@ test('on the desktop, the bow stays where it was pressed while held, turning to 
   const before = angleOf(pressed)
   expect(before).toBeDefined()
   expect(pressed).not.toContain('additive=\\"sum\\"')
+  // Laid from the region's left edge at the band's own scale, not from a
+  // cell, so the band's bow on the release lands right where this one was.
+  expect(pressed).toContain('viewBox=\\"0.0 ')
+  expect(pressed).toContain('"left":0,')
   // Moved up and to the right: the bow is still at 112 units, aimed anew,
   // and sweeps there from the last aim rather than jumping.
   await ui.pointer({ type: 'move', x: 13, y: 0, button: 'left', in: 'lash' })
