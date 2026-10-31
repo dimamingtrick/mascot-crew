@@ -914,6 +914,29 @@ test('on the desktop, the region under the pointer draws the weapon in hand whil
   expect(await region()).not.toContain('"type":"Svg"')
 })
 
+test('on the desktop, the bow stays where it was pressed while held, turning to the pointer', async ($, on) => {
+  pin(on, 'bow')
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band & {
+    pointer: (event: { type: 'down' | 'move' | 'up'; x: number; y: number; button: 'left'; in?: string }) => Promise<void>
+    drawn: (scope: { in: string }) => Promise<unknown>
+  }
+  // 8 units a cell.
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  const region = async () => JSON.stringify(await ui.drawn({ in: 'lash' }))
+  const angleOf = (drawn: string) => drawn.match(/translate\(100\.0,[\d.-]+\) rotate\(([\d.-]+)\)/)?.[1]
+  await ui.pointer({ type: 'down', x: 12, y: 2, button: 'left', in: 'lash' })
+  const before = angleOf(await region())
+  expect(before).toBeDefined()
+  // Moved up and to the right: the bow is still at 100 units, aimed anew.
+  await ui.pointer({ type: 'move', x: 13, y: 0, button: 'left', in: 'lash' })
+  const after = angleOf(await region())
+  expect(after).toBeDefined()
+  expect(after).not.toBe(before)
+  await ui.pointer({ type: 'up', x: 13, y: 0, button: 'left', in: 'lash' })
+})
+
 test('on the desktop, a press that has the mascot shoot at the minis draws the string on its own bow, nothing under the pointer', async ($, on) => {
   pin(on, 'bow')
   const clock = engine(on)

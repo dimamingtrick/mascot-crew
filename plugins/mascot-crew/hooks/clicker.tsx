@@ -16,8 +16,9 @@ const TICK_MS = 100
 const HAND_LEFT = 2
 
 // `ticks`: TICK_MS steps of the surface's frame clock since the press; `fx`
-// and `fy` the pointer with the fraction of a cell, where known.
-type Held = { x: number; y: number; fx: number; fy: number; ticks: number }
+// and `fy` the pointer with the fraction of a cell, where known; `px` and
+// `py` the same where it was pressed, where the bow stays while it is held.
+type Held = { x: number; y: number; fx: number; fy: number; px: number; py: number; ticks: number }
 // `mainTicks`: how long the main mascot's bow has been drawn at the minis,
 // for the main mascot's own region to draw.
 type State = { held?: Held; mainTicks?: number }
@@ -63,18 +64,18 @@ export const mainBow = (kit: HandKit, ticks: number) => {
   return { body: drawBar({ x: at.x, y: at.y - 15 }, power) + drawBow(kit, at, 0, power, kit.mainBow), center: at }
 }
 
-// The person's weapon in their fist by the pointer, in the drawing's units:
-// the bow drawn as far as it has been held and aimed at the pointer (or,
-// close to it, at the main mascot), the revolver at the main mascot's feet,
-// the whip or a tomato raised. Returns the markup and the point it is
-// around.
-export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number, rows: number) => {
+// The person's weapon in their fist, in the drawing's units: the bow where
+// it was pressed, drawn as far as it has been held and aimed at the pointer
+// (or, close to it, at the main mascot), as the hooks module shoots it; the
+// revolver by the pointer at the main mascot's feet, the whip or a tomato
+// raised there. Returns the markup and the point it is around.
+export const inHand = (weapon: string, hand: Hand, cursor: Point, ticks: number, rows: number, pressedAt: Point = cursor) => {
   const { kit } = hand
   const fist = (p: Point, r = 2.2) => `<circle cx="${f1(p.x)}" cy="${f1(p.y)}" r="${r}" fill="#5b3a1e"/>`
   const at = (p: Point, inner: string) => `<g transform="translate(${f1(p.x)},${f1(p.y)})">${inner}</g>`
   const top = kit.bottom - rows * hand.cellUnits * CELL_ASPECT
   if (weapon === 'bow') {
-    const anchor = { x: Math.max(kit.personBowX, cursor.x), y: clamp(cursor.y, 4, 36) }
+    const anchor = { x: Math.max(kit.personBowX, pressedAt.x), y: clamp(pressedAt.y, 4, 36) }
     const isNear = Math.hypot(cursor.x - anchor.x, cursor.y - anchor.y) < 3
     const target = isNear ? kit.chest : cursor
     const angle = (Math.atan2(target.y - anchor.y, target.x - anchor.x) * 180) / Math.PI
@@ -160,8 +161,11 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
           surface.setState({})
           if (isAtMinis) mainDraw = undefined
         } else if (event.type === 'down' || was !== undefined) {
+          const fx = event.fine?.x ?? event.x + 0.5
+          const fy = event.fine?.y ?? event.y + 0.5
+          // A down seen again while held keeps the first press's point.
           surface.setState({
-            held: { x: event.x, y: event.y, fx: event.fine?.x ?? event.x + 0.5, fy: event.fine?.y ?? event.y + 0.5, ticks: was?.ticks ?? 0 },
+            held: { x: event.x, y: event.y, fx, fy, px: was?.px ?? fx, py: was?.py ?? fy, ticks: was?.ticks ?? 0 },
           })
           if (isAtMinis && props.ready === 'bow') mainDraw = was?.ticks ?? 0
         }
@@ -201,8 +205,8 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boole
     const rowUnits = hand.cellUnits * CELL_ASPECT
     const top = hand.kit.bottom - props.rows * rowUnits
     if (held !== undefined && !isMinisPress(hand)) {
-      const cursor = { x: hand.startsAt + held.fx * hand.cellUnits, y: top + held.fy * rowUnits }
-      drawn = inHand(props.ready, hand, cursor, held.ticks, props.rows)
+      const toDrawing = (x: number, y: number) => ({ x: hand.startsAt + x * hand.cellUnits, y: top + y * rowUnits })
+      drawn = inHand(props.ready, hand, toDrawing(held.fx, held.fy), held.ticks, props.rows, toDrawing(held.px, held.py))
     } else if (mainTicks !== undefined && hand.onMain && props.ready === 'bow') drawn = mainBow(hand.kit, mainTicks)
   }
   let drawnInHand = null
