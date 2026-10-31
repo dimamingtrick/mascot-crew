@@ -45,6 +45,8 @@ export type Lash = {
   weapon?: Weapon
   hitX?: number
   shots?: number
+  // With the bow: what its arrow hit.
+  hit?: Flight['hit']
 }
 
 // One click's tomatoes, while any is still in the air or dripping: `n`
@@ -60,7 +62,48 @@ export type Toss = {
 }
 
 // The punishments a click picks from.
-export type Weapon = 'lasso' | 'gun' | 'tomato'
+export type Weapon = 'lasso' | 'gun' | 'tomato' | 'bow'
+
+// A place in the drawing's units, from the stage's left and the row's top.
+export type Point = { x: number; y: number }
+
+// One arrow's path, worked out as it leaves the bow: a parabola from `from`
+// to `to` (`ctrl` its Bezier control point) in `flightS` seconds, `launch`
+// and `angle` its heading as it leaves and as it lands, in degrees, and what
+// it hit there: the main mascot, a mini (`slot`, its place in the row), the
+// ground, or nothing at all (it flew off).
+export type Flight = {
+  from: Point
+  ctrl: Point
+  to: Point
+  flightS: number
+  launch: number
+  angle: number
+  hit: 'main' | 'mini' | 'ground' | 'away'
+  slot?: number
+}
+
+// The bow while its string is drawn: who draws it (the person at the main
+// mascot, or the main mascot at the minis), since when, where the bow is held
+// and where the cursor points it.
+export type Aim = {
+  kind: 'minis' | 'self'
+  at: number
+  anchor: Point
+  target?: Point
+}
+
+// One arrow loosed, while it flies, sticks or falls: `n` the shot's number,
+// `at` when it left the bow, `row` the row it flew over, `power` how far the
+// string was drawn (0 to 1).
+export type Arrow = {
+  n: number
+  kind: 'minis' | 'self'
+  row: string
+  at: number
+  power: number
+  flight: Flight
+}
 
 // The language the mod speaks, picked with the band's gear.
 export type Lang = 'en' | 'uk'
@@ -84,6 +127,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null; lang: Lang; isGearOpen: boolean; tosses: Toss[] }
+    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; arsenal: Weapon[]; armed: Weapon | null; lang: Lang; isGearOpen: boolean; tosses: Toss[]; aim: Aim | null; arrows: Arrow[] }
   }
 }

@@ -13,7 +13,7 @@ A Claude Code mod: while a task runs, the Claude mascot works above the prompt i
 - **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
 - **Click a mini** to open the crew pane: every working subagent's task, model, status, time and recent steps, each with ⏹ Stop and ⏱ How long left? buttons. In the terminal it's the 📋 Minis button.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
-- **Click the ⚙ gear** in the band's right corner to pick the language: English (the default) or Ukrainian. The choice is kept for later sessions.
+- **Click the ⚙ gear** in the band's right corner to pick the language (English, the default, or Ukrainian) and which weapons a run may pick: untick the lasso, the revolver or the tomato to leave it out (all are on by default, and the last one on stays on). Both choices are kept for later sessions.
 
 A mini whose subagent left work running in the background (a dev server, say) goes home after a minute of quiet; the work keeps running in Background tasks.
 
@@ -47,7 +47,7 @@ Then start a new session.
 
 ## What it runs
 
-Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays its bundled sounds (the lash, the gunshot, the splat), and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests; the one thing it keeps between sessions is your language, in the mod's own store.
+Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays its bundled sounds (the lash, the gunshot, the splat), and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests; the only things it keeps between sessions are your language and your weapons, in the mod's own store.
 
 ## License
 

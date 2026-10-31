@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, Elements, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Lang, Lash, Mini, Popup, Scene, Toss, Weapon, Whip } from '../types'
+import type { Aim, Arrow, Lang, Lash, Mini, Point, Popup, Scene, Toss, Weapon, Whip } from '../types'
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
@@ -43,6 +43,16 @@ import {
   tomatoFx,
   farthestToss,
   working,
+  MAIN_HAND,
+  PERSON_BOW_X,
+  aimAngle,
+  arrowFx,
+  arrowMs,
+  drawPower,
+  drawingBow,
+  farthestBow,
+  flyArrow,
+  thudAt,
 } from './art'
 import type { Words } from './i18n'
 import { DEFAULT_LANG, LANGS, LANG_NAMES, WORDS, isLang, localizeArt } from './i18n'
@@ -72,6 +82,13 @@ const popup = atom({ plugin: 'mascot-crew', key: 'popup' } as const, null as Pop
 // The weapons still to come before the bag is shuffled again, and the one
 // this run punishes with (null until its first click).
 const weapons = atom({ plugin: 'mascot-crew', key: 'weapons' } as const, [] as Weapon[])
+// Every weapon there is, and the ones the gear leaves on (all, unless some
+// are turned off), kept across sessions in the store too.
+const WEAPONS: Weapon[] = ['lasso', 'gun', 'tomato', 'bow']
+const arsenal = atom({ plugin: 'mascot-crew', key: 'arsenal' } as const, WEAPONS)
+const ARSENAL_KEY = 'arsenal'
+const isArsenal = (value: unknown): value is Weapon[] =>
+  Array.isArray(value) && value.length > 0 && value.every(one => WEAPONS.includes(one as Weapon))
 const ARMED = { plugin: 'mascot-crew', key: 'armed' } as const
 const armed = atom(ARMED, null as Weapon | null)
 // Set outright: nothing else writes it, and it never builds on its last value.
@@ -84,6 +101,11 @@ const isGearOpen = atom({ plugin: 'mascot-crew', key: 'isGearOpen' } as const, f
 // click throws another without cutting the last ones short.
 const tosses = atom({ plugin: 'mascot-crew', key: 'tosses' } as const, [] as Toss[])
 const isFlying = (toss: Toss, at: number) => at - toss.at < tossMs(toss.shots) + 150
+// The bow while its string is drawn (null when it is not), and every arrow
+// still flying, stuck in someone or falling off.
+const aim = atom({ plugin: 'mascot-crew', key: 'aim' } as const, null as Aim | null)
+const arrows = atom({ plugin: 'mascot-crew', key: 'arrows' } as const, [] as Arrow[])
+const isArrowSeen = (arrow: Arrow, at: number) => at - arrow.at < arrowMs(arrow.flight) + 150
 const LANG_KEY = 'lang'
 const wordsOf = async ($: EngineInterface): Promise<Words> => WORDS[await read($, lang)] ?? WORDS[DEFAULT_LANG]
 
@@ -125,15 +147,37 @@ const pickJob = (...taken: number[]) => {
 }
 
 // What the clicks of one run punish with: drawn at its first click from a
-// shuffled bag of every weapon, so each comes up as often as the others, and
-// kept until the mascot leaves.
-const WEAPONS: Weapon[] = ['lasso', 'gun', 'tomato']
+// shuffled bag of every weapon still on, so each comes up as often as the
+// others, and kept until the mascot leaves.
 const pickWeapon = async ($: EngineInterface): Promise<Weapon> => {
-  const left = await read($, weapons)
-  const bag = left.length > 0 ? left : [...WEAPONS].sort(() => Math.random() - 0.5)
+  const on = await read($, arsenal)
+  const left = (await read($, weapons)).filter(one => on.includes(one))
+  const bag = left.length > 0 ? left : [...on].sort(() => Math.random() - 0.5)
   await update($, weapons, () => bag.slice(1))
 
-  return bag[0] ?? 'lasso'
+  return bag[0] ?? on[0] ?? 'lasso'
+}
+
+// Turns one weapon off, or back on, from now on, in this session and the
+// ones after. The last one still on stays on: a click needs something.
+async function toggleWeapon($: EngineInterface, weapon: Weapon) {
+  const before = await read($, arsenal)
+  const isOn = before.includes(weapon)
+  if (isOn && before.length === 1) {
+    void $.ui.toast((await wordsOf($)).lastWeapon)
+
+    return
+  }
+  const next = WEAPONS.filter(one => (one === weapon ? !isOn : before.includes(one)))
+  await update($, arsenal, () => next)
+  // A run holding the weapon just turned off picks another.
+  const held = await read($, armed)
+  if (held !== null && !next.includes(held)) await arm($, await pickWeapon($))
+  try {
+    await $.store.set(ARSENAL_KEY, next)
+  } catch {
+    // Kept for this session alone.
+  }
 }
 
 let saluteTimer: Timer | undefined
@@ -416,6 +460,11 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   const held = await read($, armed)
   const weapon = held ?? (await pickWeapon($))
   if (held === null) await arm($, weapon)
+  if (weapon === 'bow') {
+    await looseUnaimed($, kind, from)
+
+    return
+  }
   // The busy minis in sight, each shot (or hit with a tomato) in turn.
   const shots = kind === 'minis' ? shown(now).filter(mini => !mini.isDone).length : 1
   const at = await $.clock.now()
@@ -456,6 +505,151 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   startFrames($)
   whipTimer?.cancel()
   whipTimer = $.clock.after(playsFor(made), () => {
+    void update($, whip, () => 'none' as Whip)
+  })
+}
+
+// The bow. A press draws its string (the longer it is held, the farther it
+// is drawn, up to FULL_DRAW), the cursor aims it, and letting go looses one
+// arrow. Pressed on the main mascot, or with no busy mini about, the person
+// shoots at the main mascot; elsewhere the main mascot shoots one arrow at
+// the minis, aimed and drawn the same way. An arrow can miss.
+//
+// What the press is drawing now, kept here as well as in `aim`: the cursor's
+// moves are written to `aim` at most every AIM_MS, the last one too.
+let bowDrawn: Aim | undefined
+let aimWrittenAt = 0
+let aimTimer: Timer | undefined
+let autoLoose: Timer | undefined
+const AIM_MS = 50
+// A press whose release never came (the window lost it) looses on its own
+// after this long without a move.
+const AUTO_LOOSE_MS = 6000
+type BowStep = { bow: 'down' | 'move' | 'up'; x: number; y: number; columns: number; rows: number }
+const bowStepOf = (data: unknown): BowStep | undefined =>
+  typeof data === 'object' && data !== null && 'bow' in data ? (data as BowStep) : undefined
+
+// The cursor, in the drawing's units from the stage's left and the row's
+// bottom-hung top: anywhere, past the band's edges too.
+const cursorOf = (step: BowStep, startsAt: number): Point | undefined => {
+  if (cellUnits === undefined || typeof step.x !== 'number' || typeof step.y !== 'number') return undefined
+
+  return {
+    x: step.x * cellUnits + startsAt,
+    y: HEIGHT - DROP - (step.rows - step.y) * cellUnits * CELL_ASPECT,
+  }
+}
+
+// Where the person holds their bow: where they pressed, but clear of the
+// main mascot and inside the band's height.
+const personBow = (at?: Point): Point =>
+  at === undefined
+    ? { x: MAIN_WIDTH - 8, y: 24 }
+    : { x: Math.max(PERSON_BOW_X, at.x), y: Math.min(36, Math.max(4, at.y)) }
+
+async function writeAim($: EngineInterface) {
+  aimTimer?.cancel()
+  aimTimer = undefined
+  aimWrittenAt = await $.clock.now()
+  await update($, aim, () => bowDrawn ?? null)
+}
+
+function holdAutoLoose($: EngineInterface) {
+  autoLoose?.cancel()
+  autoLoose = $.clock.after(AUTO_LOOSE_MS, () => {
+    autoLoose = undefined
+    void looseBow($, undefined)
+  })
+}
+
+// The string starts to draw: at the cursor for the person, in the main
+// mascot's hand at the minis.
+async function drawBow($: EngineInterface, cursor: Point | undefined, isAtMain: boolean) {
+  const now = await read($, scene)
+  const kind: Aim['kind'] = now.minis.some(mini => !mini.isDone) && !isAtMain ? 'minis' : 'self'
+  const at = await $.clock.now()
+  bowDrawn = {
+    kind,
+    at,
+    anchor: kind === 'minis' ? MAIN_HAND : personBow(cursor),
+    ...(cursor === undefined ? {} : { target: cursor }),
+  }
+  await update($, popup, () => null)
+  await update($, isGearOpen, () => false)
+  await writeAim($)
+  holdAutoLoose($)
+  startFrames($)
+}
+
+async function aimBow($: EngineInterface, cursor: Point | undefined) {
+  if (bowDrawn === undefined || cursor === undefined) return
+  bowDrawn = { ...bowDrawn, target: cursor }
+  holdAutoLoose($)
+  const at = await $.clock.now()
+  if (at - aimWrittenAt >= AIM_MS) await writeAim($)
+  else
+    aimTimer ??= $.clock.after(AIM_MS - (at - aimWrittenAt), () => {
+      void writeAim($)
+    })
+}
+
+// The string let go: one arrow, as far drawn as it was held. A release with
+// no press seen before it looses at once, barely drawn.
+async function looseBow($: EngineInterface, cursor: Point | undefined, isAtMain = false) {
+  if (bowDrawn === undefined) await drawBow($, cursor, isAtMain)
+  const drawn = bowDrawn
+  if (drawn === undefined) return
+  bowDrawn = undefined
+  autoLoose?.cancel()
+  autoLoose = undefined
+  await writeAim($)
+  const at = await $.clock.now()
+  await shootArrow($, drawn.kind, drawn.anchor, cursor ?? drawn.target, drawPower((at - drawn.at) / 1000))
+}
+
+// With no cursor to aim by (the terminal's button): the person shoots from
+// where they clicked at the main mascot, or the main mascot at a busy mini,
+// the string drawn most of the way.
+async function looseUnaimed($: EngineInterface, kind: Aim['kind'], from?: Point) {
+  const now = await read($, scene)
+  const busy = shown(now)
+    .filter(mini => !mini.isDone)
+    .map(mini => mini.slot)
+  const slot = busy[Math.floor(Math.random() * busy.length)] ?? 0
+  const gap = gapOf(now, await read($, band))
+  const target =
+    kind === 'minis' ? { x: MAIN_WIDTH + gap + slot * MINI_WIDTH + 22, y: 32 } : { x: 22, y: 27 }
+  await shootArrow($, kind, kind === 'minis' ? MAIN_HAND : personBow(from), target, 0.65 + Math.random() * 0.35)
+}
+
+async function shootArrow($: EngineInterface, kind: Aim['kind'], anchor: Point, target: Point | undefined, power: number) {
+  const now = await read($, scene)
+  const stage = stageOf(now, gapOf(now, await read($, band)))
+  const flight = flyArrow(stage, anchor, target, power, kind === 'self' ? 'person' : 'main')
+  const at = await $.clock.now()
+  const row = rowOf(now)
+  await update($, lash, last => ({
+    n: last.n + 1,
+    kind,
+    row,
+    at,
+    isStreak: false,
+    weapon: 'bow' as const,
+    shots: 1,
+    hit: flight.hit,
+  }))
+  const { n } = await read($, lash)
+  await update($, arrows, list => [...list.filter(one => isArrowSeen(one, at)), { n, kind, row, at, power, flight }])
+  await update($, whip, () => kind)
+  void $.audio.play({ asset: 'sounds/bow.wav' }).catch(() => undefined)
+  if (flight.hit === 'main' || flight.hit === 'mini') {
+    $.clock.after(Math.round(thudAt(flight) * 1000), () => {
+      void $.audio.play({ asset: 'sounds/thud.wav' }).catch(() => undefined)
+    })
+  }
+  startFrames($)
+  whipTimer?.cancel()
+  whipTimer = $.clock.after(Math.min(arrowMs(flight), 1500), () => {
     void update($, whip, () => 'none' as Whip)
   })
 }
@@ -698,6 +892,9 @@ export const register: Register = on => {
     await update($, popup, () => null)
     await update($, isGearOpen, () => false)
     await arm($, null)
+    bowDrawn = undefined
+    await update($, aim, () => null)
+    await update($, arrows, () => [])
     let stored: unknown
     try {
       stored = await $.store.get(LANG_KEY)
@@ -705,6 +902,13 @@ export const register: Register = on => {
       stored = undefined
     }
     await update($, lang, () => (isLang(stored) ? stored : DEFAULT_LANG))
+    let storedArsenal: unknown
+    try {
+      storedArsenal = await $.store.get(ARSENAL_KEY)
+    } catch {
+      storedArsenal = undefined
+    }
+    await update($, arsenal, () => (isArsenal(storedArsenal) ? WEAPONS.filter(one => storedArsenal.includes(one)) : WEAPONS))
 
     return next(e)
   })
@@ -837,6 +1041,18 @@ export const register: Register = on => {
     // A bare band's region over part of the row, `lash-at-<x>`, starts `x`
     // units from the stage's left.
     const startsAt = e.element.startsWith('lash-at-') ? Number(e.element.slice('lash-at-'.length)) : 0
+    const step = bowStepOf(data)
+    if (step !== undefined) {
+      const cursor = cursorOf(step, startsAt)
+      const isAtMain = e.element === 'lash'
+      // A move may come in place of its press (one post a frame, the last
+      // kept): the first step seen draws the string.
+      if (step.bow === 'up') await looseBow($, cursor, isAtMain)
+      else if (bowDrawn === undefined) await drawBow($, cursor, isAtMain)
+      else await aimBow($, cursor)
+
+      return next(e)
+    }
     const isBare = e.element === 'lash-backdrop' || e.element.startsWith('lash-at-')
     if (e.element === 'lash' || (isBare && !isRight)) {
       const at =
@@ -958,6 +1174,18 @@ export const register: Register = on => {
     const w = WORDS[language] ?? WORDS[DEFAULT_LANG]
     const gearOpen = await read($, isGearOpen)
     const toggleGear = () => void update($, isGearOpen, open => !open)
+    const armory = await read($, arsenal)
+    // Each weapon's checkbox in the gear's menu, which stays open while they
+    // are pressed.
+    const weaponBoxes = (Button: Elements['desktop']['Button']) =>
+      WEAPONS.map(one => (
+        <Button
+          key={`weapon-${one}`}
+          label={`${armory.includes(one) ? '☑ ' : '☐ '}${w.weaponNames[one]}`}
+          plain
+          onPress={() => void toggleWeapon($, one)}
+        />
+      ))
     // The band knows when the main turn is over: a stage still showing it at
     // work has missed its end.
     if (now.isWorking && !e.props.isWorking && at - turnStartedAt > 3000) void settleMainTurn($)
@@ -1022,6 +1250,8 @@ export const register: Register = on => {
                     onPress={() => void setLang($, one)}
                   />
                 ))}
+              {gearOpen && <Text key="gear-sep">│</Text>}
+              {gearOpen && weaponBoxes(Button)}
               <Button key="gear" label="⚙" plain onPress={toggleGear} />
             </Box>
           </Box>
@@ -1171,6 +1401,8 @@ export const register: Register = on => {
                   onPress={() => void setLang($, one)}
                 />
               ))}
+              <Text key="weapons-title" bold>{`⚔ ${w.weapons}`}</Text>
+              {weaponBoxes(Button)}
             </Box>
           </Box>
         )}

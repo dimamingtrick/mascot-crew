@@ -1,7 +1,7 @@
 // Every word the mod shows or says, in each language it speaks. English
 // unless the person picks another with the band's gear.
 
-import type { Lang } from '../types'
+import type { Lang, Weapon } from '../types'
 
 export type { Lang }
 
@@ -30,6 +30,11 @@ export type Words = {
   faster: string
   crewButton: string
   language: string
+  // The gear's weapons: its heading, each weapon by name, and the toast when
+  // the last one still on is pressed.
+  weapons: string
+  weaponNames: Record<Weapon, string>
+  lastWeapon: string
   // What the pictures are, for a reader that cannot see them.
   miniGone: string
   miniWorking: (job: string) => string
@@ -43,6 +48,7 @@ export type Words = {
   lasso: string
   shot: string
   tomato: string
+  bow: string
   // A subagent's status, as the background tasks list has it.
   status: Record<string, string>
   notListed: string
@@ -85,6 +91,9 @@ export const WORDS: Record<Lang, Words> = {
     faster: '🪢 FASTER',
     crewButton: '📋 Minis',
     language: 'Language',
+    weapons: 'Weapons',
+    weaponNames: { lasso: '🪢 Lasso', gun: '🔫 Revolver', tomato: '🍅 Tomato', bow: '🏹 Bow' },
+    lastWeapon: 'At least one weapon stays on',
     miniGone: 'The mini handed in its work and went back to Claude',
     miniWorking: job => `Mini at work: ${job}`,
     miniSays: text => `Mini says: ${text}`,
@@ -97,6 +106,7 @@ export const WORDS: Record<Lang, Words> = {
     lasso: 'Lasso',
     shot: 'Gunshot',
     tomato: 'Tomato',
+    bow: 'Bow and arrow',
     status: {
       pending: 'starting',
       running: 'working',
@@ -142,6 +152,9 @@ export const WORDS: Record<Lang, Words> = {
     faster: '🪢 ШВИДШЕ',
     crewButton: '📋 Клодики',
     language: 'Мова',
+    weapons: 'Зброя',
+    weaponNames: { lasso: '🪢 Ласо', gun: '🔫 Револьвер', tomato: '🍅 Помідор', bow: '🏹 Лук' },
+    lastWeapon: 'Хоча б одна зброя має лишитися',
     miniGone: 'Клодик здав роботу й пішов до Клода',
     miniWorking: job => `Клодик працює: ${job}`,
     miniSays: text => `Клодик каже: ${text}`,
@@ -154,6 +167,7 @@ export const WORDS: Record<Lang, Words> = {
     lasso: 'Ласо',
     shot: 'Постріл',
     tomato: 'Помідор',
+    bow: 'Лук і стріла',
     status: {
       pending: 'запускається',
       running: 'працює',

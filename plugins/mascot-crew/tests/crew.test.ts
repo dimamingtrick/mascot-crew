@@ -635,3 +635,65 @@ test('while it waits, the mascot holds the run\'s own weapon: the whip, the revo
     await ui.unmount()
   }
 })
+
+test('the gear turns weapons off: a run never picks one that is off, the last stays on, the next session keeps it', async ($, on) => {
+  const stored = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_, e) => {
+    stored.set(e.key, e.value)
+
+    return { value: undefined }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }) as never)
+  const clock = engine(on)
+  const played: string[] = []
+  on('audio.play', (_, e) => {
+    const clip = JSON.stringify(e.clip)
+    if (clip.includes('gunshot.wav')) played.push('gun')
+    if (clip.includes('whip.wav')) played.push('lasso')
+    if (clip.includes('splat.wav')) played.push('tomato')
+
+    return { value: undefined }
+  })
+  type Gear = Band & { find: (q: { key: string }) => Promise<unknown>; unmount: () => Promise<void> }
+  const label = async (ui: Gear, key: string) => JSON.stringify(await ui.find({ key }))
+  await $.turn.start({ text: 'go', turnId: 't0' })
+  const desk = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Gear
+  // All on at first.
+  await desk.press({ key: 'gear-button' })
+  for (const one of ['lasso', 'gun', 'tomato']) expect(await label(desk, `weapon-${one}`)).toContain('☑')
+  // Off with the revolver and the tomato; the menu stays open meanwhile.
+  await desk.press({ key: 'weapon-gun' })
+  await desk.press({ key: 'weapon-tomato' })
+  expect(await label(desk, 'weapon-gun')).toContain('☐')
+  expect(await label(desk, 'weapon-tomato')).toContain('☐')
+  // The lasso, the last one on, stays on.
+  await desk.press({ key: 'weapon-lasso' })
+  expect(await label(desk, 'weapon-lasso')).toContain('☑')
+  expect(toasts.some(text => text.includes('At least one weapon'))).toBe(true)
+  expect(stored.get('arsenal')).toEqual(['lasso'])
+  await desk.press({ key: 'gear-button' })
+  await desk.unmount()
+  await $.turn.complete({ answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false, turnId: 't0' })
+  await clock.advance(10_000)
+  // Run after run, only the lasso.
+  for (const turnId of ['t1', 't2', 't3', 't4']) {
+    await $.turn.start({ text: 'go', turnId })
+    const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Gear
+    await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', in: 'lash-backdrop' })
+    await clock.advance(1500)
+    await ui.unmount()
+    await $.turn.complete({ answer: 'ok', durationMs: 1, reason: 'answer', isAborted: false, turnId })
+    await clock.advance(10_000)
+  }
+  expect(played).toEqual(['lasso', 'lasso', 'lasso', 'lasso'])
+  // A new session reads the choice back; the terminal's gear shows it too.
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true } as never)
+  await $.turn.start({ text: 'go', turnId: 't5' })
+  const term = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Gear
+  await term.press({ key: 'gear' })
+  expect(await label(term, 'weapon-gun')).toContain('☐')
+  expect(await label(term, 'weapon-lasso')).toContain('☑')
+  await term.press({ key: 'weapon-tomato' })
+  expect(stored.get('arsenal')).toEqual(['lasso', 'tomato'])
+})

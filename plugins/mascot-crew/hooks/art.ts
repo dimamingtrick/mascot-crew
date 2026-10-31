@@ -1,4 +1,4 @@
-import type { Weapon } from '../types'
+import type { Aim, Flight, Point, Weapon } from '../types'
 import type { Lang } from './i18n'
 
 // SVG drawings of the mascot. Animation is SMIL only: the desktop draws an
@@ -769,19 +769,24 @@ const LEFT_STUB = `<rect x="-2" y="-2" width="4" height="5" fill="${O}"/>`
 
 // The run's weapon, ready in the right hand, and in the left while the
 // right holds the megaphone: the whip, the revolver hanging muzzle down, or
-// a tomato. Drawn on call: the revolver and the tomato are defined below.
+// a tomato, or the bow. Drawn on call: the revolver, the tomato and the bow are
+// defined below.
 const held = (weapon: Weapon) =>
   weapon === 'gun'
     ? `<g transform="translate(0.5,1) rotate(70) scale(0.8)">${REVOLVER}</g>`
     : weapon === 'tomato'
       ? `<g transform="translate(1.5,-3) scale(0.85)">${TOMATO}</g>`
-      : HELD_WHIP
+      : weapon === 'bow'
+        ? `<g transform="translate(1.5,0) scale(0.8)">${bow(0)}</g>`
+        : HELD_WHIP
 const heldLeft = (weapon: Weapon) =>
   weapon === 'gun'
     ? `<g transform="translate(-0.5,1) rotate(110) scale(0.8,-0.8)">${REVOLVER}</g>`
     : weapon === 'tomato'
       ? `<g transform="translate(-1.5,-3) scale(0.85)">${TOMATO}</g>`
-      : LEFT_WHIP
+      : weapon === 'bow'
+        ? `<g transform="translate(-1.5,0) scale(-0.8,0.8)">${bow(0)}</g>`
+        : LEFT_WHIP
 
 // Waits with the run's weapon ready in its right hand and taps a foot; now
 // and then raises its left wrist to glance at the watch.
@@ -1223,6 +1228,243 @@ const crewTomatoes = (busy: readonly number[]) =>
     )
     .join('')
 
+// The bow and its arrows, in seconds and the drawing's units. The string is
+// drawn to full in FULL_DRAW; an arrow leaves at a speed between ARROW_SPEED's
+// two by how far it was drawn, and falls at ARROW_G. One stuck in someone
+// stays STUCK, then falls off to the ground over FALL and lies there LIE
+// before it fades; one in the ground stays IN_GROUND.
+export const FULL_DRAW = 1
+const ARROW_SPEED = { min: 130, max: 900 }
+const ARROW_G = 140
+const STUCK = 1
+const FALL = 0.35
+const LIE = 0.6
+const IN_GROUND = 1.3
+// How far the string is pulled back at full draw.
+const PULL = 9
+// Where the main mascot holds its bow, and the middle of the bodies an arrow
+// is aimed at when no cursor says where.
+export const MAIN_HAND: Point = { x: 39, y: 25 }
+const MAIN_CHEST: Point = { x: 22, y: 27 }
+const miniChest = (x: number): Point => ({ x: x + DESK + 12, y: 32 })
+// The person's bow is held at least this far right, clear of the mascot.
+export const PERSON_BOW_X = 74
+
+// How far the string is drawn after `heldS` seconds: a quick click still
+// looses a weak arrow.
+export const drawPower = (heldS: number) => Math.min(1, Math.max(0.06, heldS / FULL_DRAW))
+
+// The bow, aimed right along +x with its grip at (0,0), the string pulled
+// back `pull` units.
+const BOW_LIMBS =
+  '<path d="M-1.5 -10 Q6.5 -7 1 0 Q6.5 7 -1.5 10" stroke="#6d4c41" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
+  '<rect x="-0.4" y="-2.2" width="2.6" height="4.4" rx="0.6" fill="#3e2723"/>'
+const stringPath = (pull: number) => `M-1.5 -10 L${(-1.5 - pull).toFixed(2)} 0 L-1.5 10`
+const STRING = 'stroke="#eceff1" stroke-width="0.55" fill="none"'
+const bow = (pull: number) => `<path d="${stringPath(pull)}" ${STRING}/>${BOW_LIMBS}`
+
+// The arrow, pointing right along +x, its tip at (0,0).
+const ARROW =
+  '<line x1="-15" y1="0" x2="-2.6" y2="0" stroke="#8d6e63" stroke-width="1"/>' +
+  '<path d="M0 0 L-3.4 -1.7 L-2.6 0 L-3.4 1.7Z" fill="#90a4ae"/>' +
+  '<path d="M-14.5 0 l-1.8 -2.2 h-2.4 l1.8 2.2Z M-14.5 0 l-1.8 2.2 h-2.4 l1.8 -2.2Z" fill="#e53935"/>'
+// An arrow nocked on a string pulled back `pull`: its nock on the string.
+const nockedAt = (pull: number) => -1.5 - pull + 15
+
+const deg = (rad: number) => (rad * 180) / Math.PI
+const fx1 = (n: number) => n.toFixed(1)
+const pt = (p: Point) => `${fx1(p.x)} ${fx1(p.y)}`
+
+// Who an arrow can hit: the main mascot (unless it shoots it) and each busy
+// mini, as boxes round their bodies.
+type Body = { hit: 'main' | 'mini'; slot?: number; x0: number; x1: number; y0: number; y1: number }
+const bodiesOf = (stage: Stage, shooter: 'person' | 'main'): Body[] => [
+  ...(shooter === 'person' ? [{ hit: 'main' as const, x0: 8, x1: 36, y0: 14, y1: 40 }] : []),
+  ...stage.minis.flatMap((mini, slot) => {
+    const x = stage.mainWidth + slot * MINI_WIDTH
+
+    return mini.isBusy ? [{ hit: 'mini' as const, slot, x0: x + DESK + 3, x1: x + DESK + 21, y0: 24, y1: 40 }] : []
+  }),
+]
+
+// Where an arrow is aimed from `from`: at the cursor, or with none (or the
+// cursor right on the bow) at the main mascot, or the first busy mini.
+export const aimAngle = (stage: Stage, from: Point, toward: Point | undefined, shooter: 'person' | 'main') => {
+  const firstBusy = stage.minis.findIndex(mini => mini.isBusy)
+  const fallback =
+    shooter === 'person' || firstBusy < 0 ? MAIN_CHEST : miniChest(stage.mainWidth + firstBusy * MINI_WIDTH)
+  const to = toward !== undefined && Math.hypot(toward.x - from.x, toward.y - from.y) >= 3 ? toward : fallback
+
+  return Math.atan2(to.y - from.y, to.x - from.x)
+}
+
+// Looses an arrow from `from` toward `toward` with the string drawn `power`
+// (0 to 1), and follows it until it hits someone, the ground, or leaves the
+// drawing (or ten seconds pass).
+export const flyArrow = (
+  stage: Stage,
+  from: Point,
+  toward: Point | undefined,
+  power: number,
+  shooter: 'person' | 'main',
+): Flight => {
+  const angle = aimAngle(stage, from, toward, shooter)
+  const speed = ARROW_SPEED.min + (ARROW_SPEED.max - ARROW_SPEED.min) * Math.min(1, Math.max(0, power))
+  const vx = speed * Math.cos(angle)
+  const vy = speed * Math.sin(angle)
+  const bodies = bodiesOf(stage, shooter)
+  const right = stageWidth(stage) + 400
+  const dt = 1 / 240
+  const at = (t: number): Point => ({ x: from.x + vx * t, y: from.y + vy * t + (ARROW_G * t * t) / 2 })
+  let t = 0
+  let hit: Flight['hit'] = 'away'
+  let slot: number | undefined
+  while (t < 10) {
+    t += dt
+    const p = at(t)
+    // Clear of the bow before it can hit anyone.
+    if (Math.hypot(p.x - from.x, p.y - from.y) > 4) {
+      const body = bodies.find(one => p.x >= one.x0 && p.x <= one.x1 && p.y >= one.y0 && p.y <= one.y1)
+      if (body !== undefined) {
+        hit = body.hit
+        slot = body.slot
+        break
+      }
+    }
+    if (p.y >= GROUND - 0.5) {
+      hit = 'ground'
+      break
+    }
+    if (p.x < -30 || p.x > right) break
+  }
+  const end = at(t)
+
+  return {
+    from,
+    // A parabola is a quadratic Bezier: its control point is where the
+    // arrow would be at the flight's end had it flown straight.
+    ctrl: { x: from.x + (vx * t) / 2, y: from.y + (vy * t) / 2 },
+    to: hit === 'ground' ? { x: end.x, y: GROUND - 0.5 } : end,
+    flightS: t,
+    launch: deg(angle),
+    angle: deg(Math.atan2(vy + ARROW_G * t, vx)),
+    hit,
+    ...(slot === undefined ? {} : { slot }),
+  }
+}
+
+// How long an arrow is seen, from leaving the bow to fading out.
+export const arrowMs = (flight: Flight) =>
+  Math.round(
+    (flight.flightS + (flight.hit === 'away' ? 0 : flight.hit === 'ground' ? IN_GROUND : STUCK + FALL + LIE)) * 1000,
+  )
+// When an arrow hits: its thud is played then.
+export const thudAt = (flight: Flight) => flight.flightS
+
+// The bow drawn at `anchor` toward `angle` degrees, `elapsed` seconds since
+// the string was first pulled: the string goes on drawing to full by itself,
+// the arrow on it, and trembles there. With `isPerson`, a fist holds it and a
+// bar over it shows how far it is drawn.
+export const drawingBow = (width: number, aim: Pick<Aim, 'anchor'>, angle: number, elapsed: number, isPerson: boolean) => {
+  const power = drawPower(elapsed)
+  const pull = PULL * power
+  const left = Math.max(0, FULL_DRAW - elapsed)
+  const full = left === 0
+  const grow = (values: string) =>
+    full ? '' : `values="${values}" begin="0s" dur="${left.toFixed(3)}s" fill="freeze"`
+  const string = full
+    ? `<path d="${stringPath(PULL)}" ${STRING}/>`
+    : `<path d="${stringPath(pull)}" ${STRING}><animate attributeName="d" ${grow(`${stringPath(pull)};${stringPath(PULL)}`)}/></path>`
+  const arrow = `<g transform="translate(${nockedAt(full ? PULL : pull).toFixed(2)},0)">${full ? '' : `<animateTransform attributeName="transform" type="translate" ${grow(`${nockedAt(pull).toFixed(2)},0;${nockedAt(PULL).toFixed(2)},0`)}/>`}${ARROW}</g>`
+  const tremble = `<animateTransform attributeName="transform" type="rotate" values="0;1.2;-1.2;0" dur="0.12s" begin="${left.toFixed(3)}s" repeatCount="indefinite"/>`
+  const { x, y } = aim.anchor
+  const fist = isPerson ? `<circle cx="${fx1(x)}" cy="${fx1(y)}" r="2.4" fill="#5b3a1e"/>` : ''
+  const barY = Math.max(-5, Math.min(36, y - 15))
+  const bar = isPerson
+    ? `<rect x="${fx1(x - 8)}" y="${fx1(barY)}" width="16" height="2" rx="1" fill="#000" opacity="0.25"/>` +
+      `<rect x="${fx1(x - 8)}" y="${fx1(barY)}" width="${fx1(16 * power)}" height="2" rx="1" fill="${full ? '#e53935' : '#ffd54a'}">${full ? '' : `<animate attributeName="width" ${grow(`${fx1(16 * power)};16`)}/><set attributeName="fill" to="#e53935" begin="${left.toFixed(3)}s"/>`}</rect>`
+    : ''
+
+  return svg(
+    width,
+    `${bar}<g transform="translate(${fx1(x)},${fx1(y)}) rotate(${angle.toFixed(1)})"><g>${tremble}${string}${BOW_LIMBS}${arrow}</g></g>${fist}`,
+  )
+}
+
+// The person's bow just after the arrow left it: the string snaps back and
+// shivers, and the bow is gone.
+const loosedBow = (anchor: Point, angle: number, pull: number) =>
+  `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="0.35s"/><circle cx="${fx1(anchor.x)}" cy="${fx1(anchor.y)}" r="2.4" fill="#5b3a1e"/>` +
+  `<g transform="translate(${fx1(anchor.x)},${fx1(anchor.y)}) rotate(${angle.toFixed(1)})">${BOW_LIMBS}` +
+  `<path d="${stringPath(0)}" ${STRING}><animate attributeName="d" values="${stringPath(pull)};${stringPath(-2)};${stringPath(1)};${stringPath(0)}" keyTimes="0;0.15;0.45;1" begin="0s" dur="0.3s" fill="freeze"/></path></g></g>`
+
+// Shut eyes for a moment as an arrow strikes, `transform` placing the body.
+const struck = (transform: string, begin: number) =>
+  `<g transform="${transform}" opacity="0"><set attributeName="opacity" to="1" begin="${at2(begin)}" dur="0.5s"/><rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
+
+// One arrow from leaving the bow: it flies its arc nose first; one that hit
+// someone sticks there quivering for STUCK, then drops off to the ground,
+// lies flat and fades; one in the ground stands there and fades.
+const arrowLife = (stage: Stage, flight: Flight, power: number, isPerson: boolean) => {
+  const T = flight.flightS
+  const b = at2(T)
+  const flying =
+    `<g opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="${at2(T)}"/>` +
+    `<animateMotion path="M${pt(flight.from)} Q${pt(flight.ctrl)} ${pt(flight.to)}" begin="0s" dur="${at2(T)}" rotate="auto" fill="freeze"/>${ARROW}</g>`
+  const loosed = isPerson ? loosedBow(flight.from, flight.launch, PULL * power) : ''
+  const quiver = `<animateTransform attributeName="transform" type="rotate" values="0;-7;5;-3;1;0" begin="${b}" dur="0.35s"/>`
+  const tip = `<g transform="translate(${pt(flight.to).replace(' ', ',')}) rotate(${flight.angle.toFixed(1)})"><g>${quiver}<g transform="translate(2.5,0)">${ARROW}</g></g></g>`
+  if (flight.hit === 'away') return loosed + flying
+  if (flight.hit === 'ground') {
+    return (
+      loosed +
+      flying +
+      `<g opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="${at2(IN_GROUND)}"/><g><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.75;1" begin="${b}" dur="${at2(IN_GROUND)}"/>${tip}</g></g>`
+    )
+  }
+  const life = STUCK + FALL + LIE
+  const k = (s: number) => (s / life).toFixed(3)
+  const keys = `keyTimes="0;${k(STUCK)};${k(STUCK + FALL)};1" begin="${b}" dur="${at2(life)}"`
+  const drop = Math.max(0, GROUND - 1.5 - flight.to.y)
+  // Lies flat, pointing the way it pointed.
+  const flat = Math.cos((flight.angle * Math.PI) / 180) >= 0 ? 0 : flight.angle > 0 ? 180 : -180
+  const a = flight.angle.toFixed(1)
+  const stuck =
+    `<g opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="${at2(life)}"/>` +
+    `<g><animate attributeName="opacity" values="1;1;0" keyTimes="0;${k(STUCK + FALL + LIE * 0.4)};1" begin="${b}" dur="${at2(life)}"/>` +
+    `<g><animateTransform attributeName="transform" type="translate" values="0,0;0,0;0,${fx1(drop)};0,${fx1(drop)}" calcMode="spline" keySplines="0 0 1 1;0.5 0 1 1;0 0 1 1" ${keys}/>` +
+    `<g transform="translate(${pt(flight.to).replace(' ', ',')})"><g><animateTransform attributeName="transform" type="rotate" values="${a};${a};${flat};${flat}" ${keys}/><g>${quiver}<g transform="translate(2.5,0)">${ARROW}</g></g></g></g></g></g></g>`
+  const body =
+    flight.hit === 'main'
+      ? 'translate(2,8)'
+      : `translate(${stage.mainWidth + (flight.slot ?? 0) * MINI_WIDTH + DESK},20.8) scale(0.6)`
+
+  return loosed + flying + struck(body, T) + stuck
+}
+
+// One shot's arrow, `elapsed` seconds after it left the bow.
+export type Loosed = { n: number; kind: 'minis' | 'self'; elapsed: number; power: number; flight: Flight }
+
+// Where the person's bows were held farthest right: the drawing reaches that far.
+export const farthestBow = (arrows: readonly Pick<Loosed, 'kind' | 'flight'>[]) =>
+  arrows.reduce<{ x: number } | undefined>(
+    (far, one) => (one.kind === 'self' && one.flight.from.x + 6 > (far?.x ?? -1) ? { x: one.flight.from.x + 6 } : far),
+    undefined,
+  )
+
+// Every arrow still flying, stuck or falling, each as far on as it got: a
+// new shot never cuts one short.
+export const arrowFx = (stage: Stage, arrows: readonly Loosed[], leavers: readonly Leaver[]) =>
+  svg(
+    fxWidth(stage, farthestBow(arrows)),
+    leavers.map(one => walkingHome(one.fromX, one.elapsed, one.job)).join('') +
+      arrows
+        .map(one =>
+          shiftTime(`<g id="lash${one.n}">${arrowLife(stage, one.flight, one.power, one.kind === 'self')}</g>`, one.elapsed),
+        )
+        .join(''),
+  )
+
 // The actor's own drawing, its body hopping from a shot at its feet at
 // `begin` seconds into the drawing (past, if negative), its eyes squeezed
 // shut while it is up. Its target and the rest stay put. `isMini`: a mini's
@@ -1336,7 +1578,8 @@ const SMALL = ['▐▛▜▌', ' ▘▝'] as const
 // `shoot`: firing the revolver at the minis; `hop`: jumping from a shot at
 // the feet; `toss`: throwing tomatoes at the minis; `splat`: a tomato in
 // the face.
-export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch' | 'shoot' | 'hop' | 'toss' | 'splat'
+// `bow`: shooting an arrow at the minis; `stuck`: an arrow in the body.
+export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch' | 'shoot' | 'hop' | 'toss' | 'splat' | 'bow' | 'stuck'
 
 export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => {
   const beside: Record<TermPose, [string, string]> = {
@@ -1349,6 +1592,8 @@ export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => 
     hop: isOdd ? [' 💢', ''] : ['', ''],
     toss: isOdd ? ['', ' ～～🍅'] : [' 🍅', ''],
     splat: isOdd ? [' 🍅💦', ''] : ['💦', '  🍅'],
+    bow: isOdd ? ['', ' 🏹 ─➤'] : [' 🏹', ''],
+    stuck: isOdd ? [' ➤💢', ''] : ['', ' ➤'],
   }
   const feet =
     pose === 'wait' && isOdd ? '  ▘▘ ▝▘' : pose === 'hop' ? (isOdd ? '   💥' : '  ▘▘💥▝▝') : BIG[2]
@@ -1368,6 +1613,9 @@ export const termMini = (pose: TermPose, job: Job, isOdd: boolean): string[] => 
     return isOdd
       ? [`🍅${SMALL[0]}${job.emoji}`, `  ${SMALL[1]}💦${job.prop}`, '']
       : ['', `💦${SMALL[0]}${job.emoji}${job.prop}`, `  ${SMALL[1]}`]
+  }
+  if (pose === 'stuck') {
+    return isOdd ? [`➤${SMALL[0]}💢`, `  ${SMALL[1]}  ${job.prop}`, ''] : ['', `➤${SMALL[0]}${job.emoji}${job.prop}`, `  ${SMALL[1]}`]
   }
   if (pose === 'ouch') {
     return isOdd
