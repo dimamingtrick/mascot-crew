@@ -1,16 +1,17 @@
 # mascot-crew
 
-A Claude Code mod: while a task runs, the Claude mascot works above the prompt in one of 50 professions. Each subagent climbs out as a mini Claude with a profession of its own, works beside it, then walks back, salutes and jumps under the prompt. 
+A Claude Code mod: while a task runs, the Claude mascot works above the prompt in one of 50 professions. Each subagent climbs out as a mini Claude with a profession of its own, works beside it, then walks back, salutes and jumps under the prompt. Up to six minis show at once.
+
 ## What you can do
 
-- **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each run picks a punishment at random and keeps it: from your prompt until the mascot leaves, every click gets the same one.
+- **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each run picks a punishment at random as the mascot comes up and keeps it until it leaves: the mascot holds it while it waits, and every click gets the same one.
   - 🪢 **Lasso**: a lash and a 💥 over the head.
   - 🔫 **Revolver**: a shot at the feet with a bang, a 💥 where the bullet lands, and a hop. At the minis the mascot fires once at each, left to right.
-  - 🍅 **Tomato**: thrown in an arc, it splats on the face with a squelch and drips down. At the minis the mascot throws one at each, left to right.
+  - 🍅 **Tomato**: thrown in an arc, it splats on the face with a squelch, then slides down the body to the ground, leaving a trail of juice and a puddle. Quick clicks throw one after another. At the minis the mascot throws one at each, left to right.
 
   Everyone gets all three, and they come up about equally often across runs.
 - **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
-- **Click a mini** to open the crew pane: every subagent's task, model, status, time and recent steps.
+- **Click a mini** to open the crew pane: every working subagent's task, model, status, time and recent steps, each with ⏹ Stop and ⏱ How long left? buttons. In the terminal it's the 📋 Minis button.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
 - **Click the ⚙ gear** in the band's right corner to pick the language: English (the default) or Ukrainian. The choice is kept for later sessions.
 
@@ -46,7 +47,7 @@ Then start a new session.
 
 ## What it runs
 
-Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays a bundled sound, and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests.
+Everything happens inside Claude Code, nothing leaves your machine. The mod reads the session's own events (turns, subagent spawns, tool calls) to draw the band, plays its bundled sounds (the lash, the gunshot, the splat), and on your request from a mini's menu stops that subagent (TaskStop) or asks Claude in the chat how long it has left. It reads and writes no files and makes no network requests; the one thing it keeps between sessions is your language, in the mod's own store.
 
 ## License
 

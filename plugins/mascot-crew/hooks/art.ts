@@ -910,7 +910,9 @@ const walkingHome = (fromX: number, elapsed: number, job: Job) => {
   const k = (t: number) => (t / total).toFixed(3)
   const begin = `begin="${(-elapsed).toFixed(2)}s"`
 
-  return `<g transform="translate(${fromX},0)"><animateTransform attributeName="transform" type="translate" values="${fromX},0;${HOME_X},0;${HOME_X},0;${HOME_X},-9;${HOME_X},40" keyTimes="0;${k(walk)};${k(walk + SALUTE_S)};${k(walk + SALUTE_S + 0.12)};1" dur="${total}s" ${begin} fill="freeze"/><g transform="${MINI_BACK}">${claude(
+  // Shown only while it walks: a drawing loaded after the walk would not
+  // keep a finished animation's end, and would draw it back at its desk.
+  return `<g opacity="0"><set attributeName="opacity" to="1" dur="${total}s" ${begin}/><g transform="translate(${fromX},0)"><animateTransform attributeName="transform" type="translate" values="${fromX},0;${HOME_X},0;${HOME_X},0;${HOME_X},-9;${HOME_X},40" keyTimes="0;${k(walk)};${k(walk + SALUTE_S)};${k(walk + SALUTE_S + 0.12)};1" dur="${total}s" ${begin} fill="freeze"/><g transform="${MINI_BACK}">${claude(
     {
       legs: 'walk',
       // Its hat on and its tool on its back: the profession plain to see.
@@ -919,7 +921,7 @@ const walkingHome = (fromX: number, elapsed: number, job: Job) => {
         `<animateTransform attributeName="transform" type="rotate" values="90;90;-40;-40" keyTimes="0;${k(walk)};${k(walk + 0.1)};1" dur="${total}s" ${begin} fill="freeze"/>${arm(12)}`,
       ),
     },
-  )}</g></g>`
+  )}</g></g></g>`
 }
 
 // The lash lands at HIT, and the whole crack is over by twice that.
@@ -1383,10 +1385,12 @@ export const rising = (drawing: string, elapsed: number) => {
 
 // Hops and drops under the prompt, `elapsed` seconds in.
 export const EXIT_MS = 600
+// Shown only while it jumps: a drawing loaded after the jump would not keep
+// a finished animation's end, and would draw the mascot back on its feet.
 export const jumpingDown = (elapsed: number, job?: Job) =>
   svg(
     MAIN_WIDTH,
-    `<g transform="translate(2,8)"><g><animateTransform attributeName="transform" type="translate" values="0,0;0,-8;0,48" keyTimes="0;0.3;1" dur="${EXIT_MS / 1000}s" begin="${(-elapsed).toFixed(2)}s" fill="freeze"/>${claude(gear(job))}</g></g>`,
+    `<g opacity="0"><set attributeName="opacity" to="1" dur="${EXIT_MS / 1000}s" begin="${(-elapsed).toFixed(2)}s"/><g transform="translate(2,8)"><g><animateTransform attributeName="transform" type="translate" values="0,0;0,-8;0,48" keyTimes="0;0.3;1" dur="${EXIT_MS / 1000}s" begin="${(-elapsed).toFixed(2)}s" fill="freeze"/>${claude(gear(job))}</g></g></g>`,
   )
 
 // The drawing `seconds` into its animation: every animation begins that much
