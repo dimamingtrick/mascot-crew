@@ -368,6 +368,7 @@ test('a lash flying from past the stage leaves a click region over its tail', as
   expect(await lash()).toContain('translate(308.0,')
   // 112 units on, 5 cells in: the same spot the first click flew from.
   await ui.pointer({ type: 'down', x: 26, y: 3, button: 'left', in: 'lash-at-112' })
+  await ui.pointer({ type: 'up', x: 26, y: 3, button: 'left', in: 'lash-at-112' })
   expect(await lash()).toContain('id=\\"lash2\\"')
   expect(await lash()).toContain('translate(308.0,')
 })
@@ -723,10 +724,10 @@ const clips = (on: On) => {
 
   return played
 }
-// One step of a press with the bow, as the click region posts it: where in
-// its cells (3 rows tall), on the main mascot's region or the bare band's.
-const bowStep = (ui: Band, bow: 'down' | 'move' | 'up', x: number, y: number, region = 'lash') =>
-  ui.post({ bow, x, y, columns: 120, rows: 3 }, { in: region })
+// One step of a press, as the click region posts it: where in its cells
+// (3 rows tall), on the main mascot's region or the bare band's.
+const bowStep = (ui: Band, press: 'down' | 'move' | 'up', x: number, y: number, region = 'lash') =>
+  ui.post({ press, x, y, columns: 120, rows: 3 }, { in: region })
 const arrowsOf = (all: string[]) => all.filter(svg => svg.includes('Bow and arrow') && svg.includes('animateMotion'))
 
 test('with the bow, a press draws the string, the cursor aims it, and letting go looses an arrow into the mascot', async ($, on) => {
@@ -766,13 +767,58 @@ test('with the bow, a weak shot from far away falls short: no thud', async ($, o
   await $.turn.start({ text: 'go', turnId: 't' })
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
   await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  // A real hold first: from now on, how long it is held is how hard it shoots.
+  await bowStep(ui, 'down', 12.5, 2)
+  await clock.advance(1100)
+  await bowStep(ui, 'up', 2, 2)
+  await clock.advance(4000)
+  expect(played).toEqual(['twang', 'thud'])
   // Pressed far out on the bare band, aimed at the mascot, let go at once.
   await bowStep(ui, 'down', 60, 2, 'lash-backdrop')
   await bowStep(ui, 'move', 2, 2, 'lash-backdrop')
   await bowStep(ui, 'up', 2, 2, 'lash-backdrop')
   expect(arrowsOf(await drawings(ui)).length).toBe(1)
   await clock.advance(4000)
-  expect(played).toEqual(['twang'])
+  expect(played).toEqual(['twang', 'thud', 'twang'])
+})
+
+test('with the bow, a press and release that come together shoot a strong arrow straight at the mascot', async ($, on) => {
+  pin(on, 'bow')
+  const clock = engine(on)
+  const played = clips(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  // Only the release reaches the mod, far out on the bare band.
+  await bowStep(ui, 'up', 40, 2, 'lash-backdrop')
+  expect(arrowsOf(await drawings(ui)).length).toBe(1)
+  await clock.advance(1000)
+  expect(played).toEqual(['twang', 'thud'])
+})
+
+test('with the lasso, a press shows it ready in the fist, and letting go cracks it', async ($, on) => {
+  pin(on, 'lasso')
+  const clock = engine(on)
+  const cracks: string[] = []
+  on('audio.play', (_, e) => {
+    if (JSON.stringify(e.clip).includes('whip.wav')) cracks.push('crack')
+
+    return { value: undefined }
+  })
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 3 } }, { in: 'lash' })
+  await bowStep(ui, 'down', 12.5, 2)
+  const ready = (await drawings(ui)).find(svg => svg.includes('Lasso')) ?? ''
+  // The fist two cells left of the pointer, the whip in it, nothing cracked yet.
+  expect(ready).toContain('cx=\\"84.0\\"')
+  expect(ready).toContain('repeatCount=\\"indefinite\\"')
+  expect(cracks).toEqual([])
+  await clock.advance(500)
+  await bowStep(ui, 'up', 12.5, 2)
+  expect(cracks).toEqual(['crack'])
+  // The ready whip is gone; the lash's own drawing swings it.
+  expect((await drawings(ui)).some(svg => svg.includes('Lasso') && svg.includes('indefinite'))).toBe(false)
 })
 
 test('with the bow, arrows stack up in the mascot, each one falling off a second after it hit', async ($, on) => {

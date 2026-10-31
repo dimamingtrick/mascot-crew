@@ -1393,6 +1393,37 @@ export const drawingBow = (width: number, aim: Pick<Aim, 'anchor'>, angle: numbe
   )
 }
 
+// Any weapon but the bow, held ready from the press until the release uses
+// it. The person's, in their fist at `hand`: the whip raised, the revolver
+// aimed at the main mascot's feet, a tomato raised, shaking a little. The
+// main mascot's, at the minis, in its hand at `hand`: the whip wound back,
+// the revolver aimed at the first busy mini's feet, a tomato raised.
+export const readyWeapon = (stage: Stage, width: number, weapon: Weapon, hand: Point, isPerson: boolean) => {
+  const shake = '<animateTransform attributeName="transform" type="rotate" values="0;-7;0;7;0" dur="0.45s" repeatCount="indefinite"/>'
+  const fist = (at: Point) => (isPerson ? `<circle cx="${fx1(at.x)}" cy="${fx1(at.y)}" r="2.2" fill="#5b3a1e"/>` : '')
+  const placed = (at: Point, inner: string) => `<g transform="translate(${fx1(at.x)},${fx1(at.y)})">${inner}</g>`
+  if (weapon === 'gun') {
+    const firstBusy = stage.minis.findIndex(mini => mini.isBusy)
+    const target =
+      isPerson || firstBusy < 0
+        ? { x: 22, y: GROUND }
+        : { x: stage.mainWidth + firstBusy * MINI_WIDTH + DESK + 12, y: GROUND }
+    // As the shot itself: never so close the muzzle reaches past the target.
+    const from = isPerson && Math.hypot(hand.x - target.x, hand.y - target.y) < 16 ? { x: hand.x, y: target.y - 16 } : hand
+    const { angle, isLeft } = aim(from, target)
+    const gun = `<g transform="rotate(${angle.toFixed(1)})"><g transform="scale(1,${isLeft ? -1 : 1})">${REVOLVER}</g></g>`
+
+    return svg(width, placed(from, gun) + fist({ x: from.x, y: from.y + 1.5 }))
+  }
+  if (weapon === 'tomato')
+    return svg(width, placed(hand, `<g transform="translate(0,-3) scale(0.85)"><g>${shake}${TOMATO}</g></g>`) + fist(hand))
+  const whip = isPerson
+    ? `<g transform="scale(${hand.x >= 36 ? -1 : 1},1)"><g>${shake}${HELD_WHIP}</g></g>`
+    : `<g transform="rotate(-70)">${HELD_WHIP}</g>`
+
+  return svg(width, placed(hand, whip) + fist(hand))
+}
+
 // The person's bow just after the arrow left it: the string snaps back and
 // shivers, and the bow is gone.
 const loosedBow = (anchor: Point, angle: number, pull: number) =>

@@ -83,14 +83,18 @@ export type Flight = {
   slot?: number
 }
 
-// The bow while its string is drawn: who draws it (the person at the main
-// mascot, or the main mascot at the minis), since when, where the bow is held
-// and where the cursor points it.
+// A weapon held ready while the button is down: who holds it (the person at
+// the main mascot, or the main mascot at the minis), since when, where it is
+// held and where the cursor points it. `weapon`: what is held (the bow when
+// not set: its string is drawn the whole time). `isAtMain`: pressed on the
+// main mascot itself.
 export type Aim = {
   kind: 'minis' | 'self'
   at: number
   anchor: Point
   target?: Point
+  weapon?: Weapon
+  isAtMain?: boolean
 }
 
 // One arrow loosed, while it flies, sticks or falls: `n` the shot's number,

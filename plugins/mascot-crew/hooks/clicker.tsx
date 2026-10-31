@@ -10,15 +10,15 @@ const HOLD_MS = 2000
 // A see-through region laid over the band. It posts to the hooks module:
 // - `{ button, x, y, columns, rows }` for a click: left or right (the right
 //   button, or a ctrl+click), where in the region, and how big it is;
-// - with `bow`, `{ bow, x, y, columns, rows }` instead for each step of a
-//   left press: `down`, every `move` while it is held (the region keeps the
-//   pointer until the button comes up, past its edges too), and `up`; `x`
-//   and `y` in cells with the fraction kept, the middle of a cell where the
-//   surface knows no finer;
+// - with `steps`, `{ press, x, y, columns, rows }` instead for each step of
+//   a left press (the right button's clicks stay as above): `down`, every `move` while it is held (the region keeps
+//   the pointer until the button comes up, past its edges too), and `up`;
+//   `x` and `y` in cells with the fraction kept, the middle of a cell where
+//   the surface knows no finer;
 // - with `reportsSize`, `{ size }` whenever its size changes.
 // The surface sizes the region by what it draws, so it draws `rows` blank
 // rows across the whole width.
-const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; bow?: boolean }, boolean> = (props, surface) => {
+const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; steps?: boolean }, boolean> = (props, surface) => {
   if (surface.state === undefined) {
     surface.setState(true)
     if (props.reportsSize === true) {
@@ -31,11 +31,10 @@ const Clicker: ClientModule<{ rows: number; reportsSize?: boolean; bow?: boolean
     }
   }
   surface.onPointer(event => {
-    if (props.bow === true) {
-      if (event.button !== 'left' || event.ctrl === true) return
+    if (props.steps === true && event.button === 'left' && event.ctrl !== true) {
       if (event.type !== 'down' && event.type !== 'move' && event.type !== 'up') return
       surface.post({
-        bow: event.type,
+        press: event.type,
         x: event.fine?.x ?? event.x + 0.5,
         y: event.fine?.y ?? event.y + 0.5,
         columns: surface.columns,

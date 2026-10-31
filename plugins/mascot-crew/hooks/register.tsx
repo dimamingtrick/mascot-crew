@@ -52,6 +52,7 @@ import {
   drawingBow,
   farthestBow,
   flyArrow,
+  readyWeapon,
   thudAt,
 } from './art'
 import type { Words } from './i18n'
@@ -511,29 +512,39 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   })
 }
 
-// The bow. A press draws its string (the longer it is held, the farther it
-// is drawn, up to FULL_DRAW), the cursor aims it, and letting go looses one
-// arrow. Pressed on the main mascot, or with no busy mini about, the person
-// shoots at the main mascot; elsewhere the main mascot shoots one arrow at
-// the minis, aimed and drawn the same way. An arrow can miss.
+// A left press on the band, step by step. On the press the run's weapon
+// shows ready: the bow's string starts to draw (the longer it is held, the
+// farther, up to FULL_DRAW) and the cursor aims it; any other weapon is held
+// up in the person's fist, or in the main mascot's hand at the minis. On the
+// release it is used: one arrow, one lash, one volley. Pressed on the main
+// mascot, or with no busy mini about, the person attacks the main mascot;
+// elsewhere the main mascot attacks the minis. An arrow can miss.
 //
-// What the press is drawing now, kept here as well as in `aim`: the cursor's
+// The surface may hand over a press and its release together, at the
+// release: then the weapon is used at once, and an arrow, with no hold seen
+// to measure, leaves drawn SNAP_POWER, until a real hold has been seen.
+//
+// What the press holds now, kept here as well as in `aim`: the cursor's
 // moves are written to `aim` at most every AIM_MS, the last one too.
-let bowDrawn: Aim | undefined
+let pressed: Aim | undefined
+let isHoldSeen = false
 let aimWrittenAt = 0
 let aimTimer: Timer | undefined
 let autoLoose: Timer | undefined
 const AIM_MS = 50
-// A press whose release never came (the window lost it) looses on its own
-// after this long without a move.
+// Shorter than this between press and release, the two came together.
+const SNAP_MS = 150
+const SNAP_POWER = 0.85
+// A press whose release never came (the window lost it) is let go on its
+// own after this long without a move.
 const AUTO_LOOSE_MS = 6000
-type BowStep = { bow: 'down' | 'move' | 'up'; x: number; y: number; columns: number; rows: number }
-const bowStepOf = (data: unknown): BowStep | undefined =>
-  typeof data === 'object' && data !== null && 'bow' in data ? (data as BowStep) : undefined
+type PressStep = { press: 'down' | 'move' | 'up'; x: number; y: number; columns: number; rows: number }
+const pressStepOf = (data: unknown): PressStep | undefined =>
+  typeof data === 'object' && data !== null && 'press' in data ? (data as PressStep) : undefined
 
 // The cursor, in the drawing's units from the stage's left and the row's
 // bottom-hung top: anywhere, past the band's edges too.
-const cursorOf = (step: BowStep, startsAt: number): Point | undefined => {
+const cursorOf = (step: PressStep, startsAt: number): Point | undefined => {
   if (cellUnits === undefined || typeof step.x !== 'number' || typeof step.y !== 'number') return undefined
 
   return {
@@ -542,6 +553,12 @@ const cursorOf = (step: BowStep, startsAt: number): Point | undefined => {
   }
 }
 
+// The person's hand for a press: as for a click, left of the pointer.
+const handOf = (step: PressStep, startsAt: number) =>
+  cellUnits === undefined
+    ? undefined
+    : pointOf({ button: 'left', x: step.x - 0.5 + startsAt / cellUnits, y: step.y - 0.5, columns: step.columns, rows: step.rows })
+
 // Where the person holds their bow: where they pressed, but clear of the
 // main mascot and inside the band's height.
 const personBow = (at?: Point): Point =>
@@ -549,31 +566,46 @@ const personBow = (at?: Point): Point =>
     ? { x: MAIN_WIDTH - 8, y: 24 }
     : { x: Math.max(PERSON_BOW_X, at.x), y: Math.min(36, Math.max(4, at.y)) }
 
+// Where the main mascot's hand is, holding its weapon.
+const MAIN_GRIP: Point = { x: 39, y: 25 }
+
 async function writeAim($: EngineInterface) {
   aimTimer?.cancel()
   aimTimer = undefined
   aimWrittenAt = await $.clock.now()
-  await update($, aim, () => bowDrawn ?? null)
+  await update($, aim, () => pressed ?? null)
 }
 
 function holdAutoLoose($: EngineInterface) {
   autoLoose?.cancel()
   autoLoose = $.clock.after(AUTO_LOOSE_MS, () => {
     autoLoose = undefined
-    void looseBow($, undefined)
+    void releasePress($, undefined, undefined, false)
   })
 }
 
-// The string starts to draw: at the cursor for the person, in the main
-// mascot's hand at the minis.
-async function drawBow($: EngineInterface, cursor: Point | undefined, isAtMain: boolean) {
+// The press: the run's weapon (drawn now if the run has none yet) shows
+// ready, the bow's string starting to draw.
+async function startPress($: EngineInterface, cursor: Point | undefined, hand: Point | undefined, isAtMain: boolean) {
   const now = await read($, scene)
   const kind: Aim['kind'] = now.minis.some(mini => !mini.isDone) && !isAtMain ? 'minis' : 'self'
-  const at = await $.clock.now()
-  bowDrawn = {
+  const held = await read($, armed)
+  const weapon = held ?? (await pickWeapon($))
+  if (held === null) await arm($, weapon)
+  const isBow = weapon === 'bow'
+  pressed = {
     kind,
-    at,
-    anchor: kind === 'minis' ? MAIN_HAND : personBow(cursor),
+    at: await $.clock.now(),
+    anchor:
+      kind === 'minis'
+        ? isBow
+          ? MAIN_HAND
+          : MAIN_GRIP
+        : isBow
+          ? personBow(cursor)
+          : (hand ?? { x: MAIN_WIDTH - 8, y: 24 }),
+    weapon,
+    isAtMain,
     ...(cursor === undefined ? {} : { target: cursor }),
   }
   await update($, popup, () => null)
@@ -583,9 +615,12 @@ async function drawBow($: EngineInterface, cursor: Point | undefined, isAtMain: 
   startFrames($)
 }
 
-async function aimBow($: EngineInterface, cursor: Point | undefined) {
-  if (bowDrawn === undefined || cursor === undefined) return
-  bowDrawn = { ...bowDrawn, target: cursor }
+// The cursor moves while pressed: the bow turns to it, the person's fist
+// follows it.
+async function movePress($: EngineInterface, cursor: Point | undefined, hand: Point | undefined) {
+  if (pressed === undefined || cursor === undefined) return
+  const follows = pressed.kind === 'self' && pressed.weapon !== 'bow' && hand !== undefined
+  pressed = { ...pressed, target: cursor, ...(follows ? { anchor: hand } : {}) }
   holdAutoLoose($)
   const at = await $.clock.now()
   if (at - aimWrittenAt >= AIM_MS) await writeAim($)
@@ -595,18 +630,25 @@ async function aimBow($: EngineInterface, cursor: Point | undefined) {
     })
 }
 
-// The string let go: one arrow, as far drawn as it was held. A release with
-// no press seen before it looses at once, barely drawn.
-async function looseBow($: EngineInterface, cursor: Point | undefined, isAtMain = false) {
-  if (bowDrawn === undefined) await drawBow($, cursor, isAtMain)
-  const drawn = bowDrawn
-  if (drawn === undefined) return
-  bowDrawn = undefined
+// The release: the weapon is used. A release with no press seen before it
+// is a press and its release together.
+async function releasePress($: EngineInterface, cursor: Point | undefined, hand: Point | undefined, isAtMain: boolean) {
+  if (pressed === undefined) await startPress($, cursor, hand, isAtMain)
+  const held = pressed
+  if (held === undefined) return
+  pressed = undefined
   autoLoose?.cancel()
   autoLoose = undefined
   await writeAim($)
-  const at = await $.clock.now()
-  await shootArrow($, drawn.kind, drawn.anchor, cursor ?? drawn.target, drawPower((at - drawn.at) / 1000))
+  if (held.weapon !== 'bow') {
+    await crackWhip($, held.kind === 'self' ? (hand ?? held.anchor) : hand, held.isAtMain === true)
+
+    return
+  }
+  const heldMs = (await $.clock.now()) - held.at
+  if (heldMs >= SNAP_MS) isHoldSeen = true
+  const power = isHoldSeen ? drawPower(heldMs / 1000) : SNAP_POWER
+  await shootArrow($, held.kind, held.anchor, cursor ?? held.target, power)
 }
 
 // With no cursor to aim by (the terminal's button): the person shoots from
@@ -894,7 +936,8 @@ export const register: Register = on => {
     await update($, popup, () => null)
     await update($, isGearOpen, () => false)
     await arm($, null)
-    bowDrawn = undefined
+    pressed = undefined
+    isHoldSeen = false
     await update($, aim, () => null)
     await update($, arrows, () => [])
     let stored: unknown
@@ -1043,15 +1086,16 @@ export const register: Register = on => {
     // A bare band's region over part of the row, `lash-at-<x>`, starts `x`
     // units from the stage's left.
     const startsAt = e.element.startsWith('lash-at-') ? Number(e.element.slice('lash-at-'.length)) : 0
-    const step = bowStepOf(data)
+    const step = pressStepOf(data)
     if (step !== undefined) {
       const cursor = cursorOf(step, startsAt)
+      const hand = handOf(step, startsAt)
       const isAtMain = e.element === 'lash'
       // A move may come in place of its press (one post a frame, the last
-      // kept): the first step seen draws the string.
-      if (step.bow === 'up') await looseBow($, cursor, isAtMain)
-      else if (bowDrawn === undefined) await drawBow($, cursor, isAtMain)
-      else await aimBow($, cursor)
+      // kept): the first step seen is the press.
+      if (step.press === 'up') await releasePress($, cursor, hand, isAtMain)
+      else if (pressed === undefined) await startPress($, cursor, hand, isAtMain)
+      else await movePress($, cursor, hand)
 
       return next(e)
     }
@@ -1299,9 +1343,9 @@ export const register: Register = on => {
     const lastLash = await read($, lash)
     // What the main mascot holds: this run's weapon.
     const weaponNow = (await read($, armed)) ?? 'lasso'
-    // The main mascot keeps its bow in hand after a shot; while it draws the
-    // string, the bow is in the drawn bow's picture instead.
-    const bowDrawnAt = aimNow?.kind === 'minis' ? (aimNow.at - now.enterAt) / 1000 : undefined
+    // While it holds its weapon ready at the minis, the weapon is in the
+    // ready weapon's picture instead of its hand.
+    const readyAt = aimNow?.kind === 'minis' ? (aimNow.at - now.enterAt) / 1000 : undefined
     const lashAtWait =
       lastLash.n > 0 && lastLash.weapon !== 'bow' && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
         ? lastLash.at
@@ -1325,8 +1369,8 @@ export const register: Register = on => {
             source: shiftTime(
               waiting(
                 job,
-                bowDrawnAt ?? (lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000),
-                bowDrawnAt === undefined ? lashFor : 3600,
+                readyAt ?? (lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000),
+                readyAt === undefined ? lashFor : 3600,
                 weaponNow,
               ),
               (at - now.enterAt) / 1000,
@@ -1407,12 +1451,14 @@ export const register: Register = on => {
           ? stageFx(stage, isFresh ? { ...last, elapsed: (at - last.at) / 1000 } : undefined, leavers)
         : undefined
 
-    // The bow being drawn: its own picture, over the row as far right as the
-    // person holds it, aimed at the cursor.
+    // The weapon held ready: its own picture, over the row as far right as
+    // the person holds it, the bow aimed at the cursor.
     const aimW = aimNow === null ? width : Math.max(width, Math.ceil(aimNow.anchor.x + 20))
     const aimSvg =
       aimNow === null
         ? undefined
+        : aimNow.weapon !== undefined && aimNow.weapon !== 'bow'
+        ? readyWeapon(stage, aimW, aimNow.weapon, aimNow.anchor, aimNow.kind === 'self')
         : drawingBow(
             aimW,
             aimNow,
@@ -1420,7 +1466,6 @@ export const register: Register = on => {
             (realAt - aimNow.at) / 1000,
             aimNow.kind === 'self',
           )
-    const bowArmed = weaponNow === 'bow'
 
     // Each actor keeps its own drawing in its own keyed place; a lash is a
     // transparent drawing laid over the row, so it redraws nobody. Drawn as
@@ -1437,7 +1482,7 @@ export const register: Register = on => {
               <Client
                 key="lash-backdrop"
                 module="./clicker.tsx"
-                props={{ rows: CLICK_ROWS, reportsSize: true, bow: bowArmed }}
+                props={{ rows: CLICK_ROWS, reportsSize: true, steps: true }}
                 width="100%"
                 height={CLICK_ROWS}
               />
@@ -1535,7 +1580,7 @@ export const register: Register = on => {
           )}
           {aimSvg !== undefined && (
             <Box key="bow-aim" position="absolute" top={0} left={0} width={`${Math.ceil((aimW / width) * 100)}%`}>
-              <Svg source={aimSvg} alt={w.bow} width={aimW * SCALE} height={HEIGHT * SCALE} />
+              <Svg source={aimSvg} alt={aimNow?.weapon === undefined || aimNow.weapon === 'bow' ? w.bow : w.weaponNames[aimNow.weapon]} width={aimW * SCALE} height={HEIGHT * SCALE} />
             </Box>
           )}
           {Client !== undefined && showsRegions && (
@@ -1558,7 +1603,7 @@ export const register: Register = on => {
                 <Client
                   key="lash"
                   module="./clicker.tsx"
-                  props={{ rows: CLICK_ROWS, reportsSize: true, bow: bowArmed }}
+                  props={{ rows: CLICK_ROWS, reportsSize: true, steps: true }}
                   width="100%"
                   height={CLICK_ROWS}
                 />
@@ -1569,7 +1614,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${MAIN_WIDTH}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, bow: bowArmed }}
+                    props={{ rows: CLICK_ROWS, steps: true }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
@@ -1626,7 +1671,7 @@ export const register: Register = on => {
                   <Client
                     key={`lash-at-${width}`}
                     module="./clicker.tsx"
-                    props={{ rows: CLICK_ROWS, bow: bowArmed }}
+                    props={{ rows: CLICK_ROWS, steps: true }}
                     width="100%"
                     height={CLICK_ROWS}
                   />
