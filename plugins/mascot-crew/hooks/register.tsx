@@ -711,9 +711,10 @@ export const register: Register = on => {
     exitTimer?.cancel()
     const at = await $.clock.now()
     turnStartedAt = at
-    // A new run picks its weapon afresh.
+    // A new run picks its weapon afresh as the mascot comes up, so it holds
+    // the right one from the start.
     const before = await read($, scene)
-    if (!isOnStage(before) || before.leaveAt > 0) await arm($, null)
+    if (!isOnStage(before) || before.leaveAt > 0) await arm($, await pickWeapon($))
     // Off stage (or on its way down), it jumps back up from under the prompt,
     // and only then takes up a new profession: one task keeps one.
     await patchScene($, s => {
@@ -1037,6 +1038,8 @@ export const register: Register = on => {
     // A fresh lash at the minis takes the whip out of the main mascot's hand
     // for the swing that the whip's own drawing shows.
     const lastLash = await read($, lash)
+    // What the main mascot holds: this run's weapon.
+    const weaponNow = (await read($, armed)) ?? 'lasso'
     const lashAtWait =
       lastLash.n > 0 && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
         ? lastLash.at
@@ -1053,12 +1056,12 @@ export const register: Register = on => {
       : isWaiting
       ? handoffLeft > 0
         ? {
-            source: finishing(job, handoffLeft / 1000),
+            source: finishing(job, handoffLeft / 1000, weaponNow),
             alt: w.finishing(jobName),
           }
         : {
             source: shiftTime(
-              waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000, lashFor),
+              waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000, lashFor, weaponNow),
               (at - now.enterAt) / 1000,
             ),
             alt: w.waiting }

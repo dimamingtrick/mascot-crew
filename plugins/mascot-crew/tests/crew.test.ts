@@ -613,3 +613,25 @@ test('quick tomato clicks each throw one more, none cutting the others short', a
   const again = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
   expect((await drawings(again)).some(svg => svg.includes('Tomato'))).toBe(false)
 })
+
+test('while it waits, the mascot holds the run\'s own weapon: the whip, the revolver or a tomato', async ($, on) => {
+  // What each weapon looks like in its hand, drawn by nothing else: the
+  // whip's lash, the revolver's barrel, the tomato's shine.
+  const looks = { lasso: 'Q9 -4 7 3', gun: 'width=\\"7.4\\" height=\\"1.8\\"', tomato: '#ff8a80' } as const
+  let armed: keyof typeof looks = 'lasso'
+  on('state.get', { plugin: 'mascot-crew', key: 'armed' }, () => ({ value: { value: armed, version: 1 } }))
+  const clock = engine(on)
+  for (const weapon of ['lasso', 'gun', 'tomato'] as const) {
+    armed = weapon
+    await $.turn.start({ text: 'go', turnId: `t-${weapon}` })
+    await $.agent.spawn({ prompt: 'dig' } as never)
+    await clock.advance(2500)
+    const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+    const main = (await drawings(ui)).find(svg => svg.includes('Claude waits')) ?? ''
+    expect(main).toContain(looks[weapon])
+    for (const other of Object.keys(looks) as (keyof typeof looks)[]) {
+      if (other !== weapon) expect(main).not.toContain(looks[other])
+    }
+    await ui.unmount()
+  }
+})

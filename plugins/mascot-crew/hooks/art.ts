@@ -762,11 +762,27 @@ const HELD_WHIP = `<g transform="rotate(${HELD_ANGLE})"><rect x="-1" y="-9" widt
 const LEFT_WHIP = `<g transform="rotate(-20)"><rect x="-1" y="-9" width="2" height="9" fill="#5b3a1e"/></g><path d="M-3 -8.5 Q-6 -3 -4 3 Q-2 8 -5 10" stroke="#5b3a1e" stroke-width="1.2" fill="none" stroke-linecap="round"/>`
 const LEFT_STUB = `<rect x="-2" y="-2" width="4" height="5" fill="${O}"/>`
 
-// Waits with the whip ready in its right hand and taps a foot; now and then
-// raises its left wrist to glance at the watch.
-// `lashAt`: when (in seconds of this drawing) the held whip is swung: it
-// leaves the hand for the swing, which the lash's own drawing shows.
-const waitingBody = (job?: Job, lashAt?: number, lashFor = HIT * 2.5) => {
+// The run's weapon, ready in the right hand, and in the left while the
+// right holds the megaphone: the whip, the revolver hanging muzzle down, or
+// a tomato. Drawn on call: the revolver and the tomato are defined below.
+const held = (weapon: Weapon) =>
+  weapon === 'gun'
+    ? `<g transform="translate(0.5,1) rotate(70) scale(0.8)">${REVOLVER}</g>`
+    : weapon === 'tomato'
+      ? `<g transform="translate(1.5,-3) scale(0.85)">${TOMATO}</g>`
+      : HELD_WHIP
+const heldLeft = (weapon: Weapon) =>
+  weapon === 'gun'
+    ? `<g transform="translate(-0.5,1) rotate(110) scale(0.8,-0.8)">${REVOLVER}</g>`
+    : weapon === 'tomato'
+      ? `<g transform="translate(-1.5,-3) scale(0.85)">${TOMATO}</g>`
+      : LEFT_WHIP
+
+// Waits with the run's weapon ready in its right hand and taps a foot; now
+// and then raises its left wrist to glance at the watch.
+// `lashAt`: when (in seconds of this drawing) the weapon is used: it leaves
+// the hand for that long, which the lash's own drawing shows.
+const waitingBody = (job?: Job, lashAt?: number, lashFor = HIT * 2.5, weapon: Weapon = 'lasso') => {
   const watch = `<g opacity="0">${lookOpacity('1', '0')}<g transform="rotate(35)">${arm(10)}<rect x="-2.2" y="-7" width="4.4" height="3" fill="#222"/><rect x="-1.2" y="-6.3" width="2.4" height="1.6" fill="#9be7ff"/></g></g>`
   const stub = `<g>${lookOpacity('0', '1')}${LEFT_STUB}</g>`
 
@@ -774,14 +790,14 @@ const waitingBody = (job?: Job, lashAt?: number, lashFor = HIT * 2.5) => {
     ...gear(job),
     legs: 'tap',
     leftHand: `<g transform="translate(4,17)">${stub}${watch}</g>`,
-    hand: `<g transform="translate(37,17)">${STUB}<g>${lashAt === undefined ? '' : `<set attributeName="opacity" to="0" begin="${lashAt.toFixed(2)}s" dur="${lashFor.toFixed(2)}s"/>`}${HELD_WHIP}</g></g>`,
+    hand: `<g transform="translate(37,17)">${STUB}<g>${lashAt === undefined ? '' : `<set attributeName="opacity" to="0" begin="${lashAt.toFixed(2)}s" dur="${lashFor.toFixed(2)}s"/>`}${held(weapon)}</g></g>`,
   })}</g><text x="45" y="18" font-size="9" fill="#888" opacity="0">…${lookOpacity('1', '0')}</text>`
 }
 
-// `lashFor`: how long the whip is out of the hand, in seconds (a lash's
-// swing, or the revolver's shots).
-export const waiting = (job?: Job, lashAt?: number, lashFor?: number) =>
-  svg(MAIN_WIDTH, waitingBody(job, lashAt, lashFor))
+// `lashFor`: how long the weapon is out of the hand, in seconds (a lash's
+// swing, the revolver's shots, the tomatoes' throws).
+export const waiting = (job?: Job, lashAt?: number, lashFor?: number, weapon?: Weapon) =>
+  svg(MAIN_WIDTH, waitingBody(job, lashAt, lashFor, weapon))
 
 // The handoff, in seconds: works on to the end of its own task, shows a
 // tick, then calls the minis through a megaphone; they climb out at CALL_MS.
@@ -800,7 +816,7 @@ const callWaves = () =>
 
 // Hands the work over. `left` is the seconds of it still to play, for a
 // drawing loaded part way through: phases already past are left out.
-export const finishing = (job: Job, left: number) => {
+export const finishing = (job: Job, left: number, weapon: Weapon = 'lasso') => {
   const elapsed = HANDOFF.end - left
   const phase = (from: number, to: number | undefined, body: string) => {
     if (to !== undefined && to - elapsed <= 0) return ''
@@ -821,11 +837,11 @@ export const finishing = (job: Job, left: number) => {
         HANDOFF.end,
         `${still(
           hand(`<g transform="rotate(90)"><g transform="rotate(-90)">${MEGAPHONE}</g></g>`),
-          // Calling with the megaphone, it already has the whip in hand.
-          `<g transform="translate(4,17)">${LEFT_STUB}${LEFT_WHIP}</g>`,
+          // Calling with the megaphone, it already has the weapon in hand.
+          `<g transform="translate(4,17)">${LEFT_STUB}${heldLeft(weapon)}</g>`,
         )}${callWaves()}<text x="70" y="14" font-size="11" font-weight="bold" fill="#D97757">!!<animate attributeName="opacity" values="1;0.4;1" dur="0.3s" repeatCount="indefinite"/></text>`,
       ) +
-      phase(HANDOFF.end, undefined, waitingBody(job)),
+      phase(HANDOFF.end, undefined, waitingBody(job, undefined, undefined, weapon)),
   )
 }
 
