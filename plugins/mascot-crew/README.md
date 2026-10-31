@@ -6,11 +6,13 @@ A Claude Code mod: while a task runs, the Claude mascot works above the prompt i
 - **Click the mascot** to punish it from where you clicked; **click anywhere else on the band** to have it punish the busy minis (just for fun, nothing is sent). In the terminal it's the 🪢 FASTER button. Each run picks a punishment at random and keeps it: from your prompt until the mascot leaves, every click gets the same one.
   - 🪢 **Lasso**: a lash and a 💥 over the head.
   - 🔫 **Revolver**: a shot at the feet with a bang, a 💥 where the bullet lands, and a hop. At the minis the mascot fires once at each, left to right.
+  - 🍅 **Tomato**: thrown in an arc, it splats on the face with a squelch and drips down. At the minis the mascot throws one at each, left to right.
 
-  Everyone gets both, and they come up about equally often across runs.
+  Everyone gets all three, and they come up about equally often across runs.
 - **Hover a mini** to see its model and the task it was given (`Sonnet 5.5: Native: photo sheet + live receipt`).
 - **Click a mini** to open the crew pane: every subagent's task, model, status, time and recent steps.
 - **Right-click a mini** for its menu: stop it, ask Claude how long it has left, or show its details.
+- **Click the ⚙ gear** in the band's right corner to pick the language: English (the default) or Ukrainian. The choice is kept for later sessions.
 
 A mini whose subagent left work running in the background (a dev server, say) goes home after a minute of quiet; the work keeps running in Background tasks.
 

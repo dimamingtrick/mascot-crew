@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { AgentInfo, Elements, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Lash, Mini, Popup, Scene, Weapon, Whip } from '../types'
+import type { Lang, Lash, Mini, Popup, Scene, Weapon, Whip } from '../types'
 import type { Job, Stage, TermPose } from './art'
 import {
   JOBS,
@@ -33,12 +33,16 @@ import {
   saluting,
   shotAt,
   shotMs,
+  splatAt,
+  tossMs,
   termMain,
   termMini,
   waiting,
   stageFx,
   working,
 } from './art'
+import type { Words } from './i18n'
+import { DEFAULT_LANG, LANGS, LANG_NAMES, WORDS, isLang, localizeArt } from './i18n'
 
 const IDLE: Scene = {
   isWorking: false,
@@ -69,6 +73,23 @@ const ARMED = { plugin: 'mascot-crew', key: 'armed' } as const
 const armed = atom(ARMED, null as Weapon | null)
 // Set outright: nothing else writes it, and it never builds on its last value.
 const arm = ($: EngineInterface, weapon: Weapon | null) => $.state.set(ARMED, weapon)
+// The language the mod speaks, kept across sessions in the store too, and
+// whether the gear's menu for it is open.
+const lang = atom({ plugin: 'mascot-crew', key: 'lang' } as const, DEFAULT_LANG as Lang)
+const isGearOpen = atom({ plugin: 'mascot-crew', key: 'isGearOpen' } as const, false)
+const LANG_KEY = 'lang'
+const wordsOf = async ($: EngineInterface): Promise<Words> => WORDS[await read($, lang)] ?? WORDS[DEFAULT_LANG]
+
+// Speaks `next` from now on, in this session and the ones after.
+async function setLang($: EngineInterface, next: Lang) {
+  await update($, lang, () => next)
+  await update($, isGearOpen, () => false)
+  try {
+    await $.store.set(LANG_KEY, next)
+  } catch {
+    // Kept for this session alone.
+  }
+}
 
 const SALUTE_MS = 4000
 const FRAME_MS = 300
@@ -82,8 +103,6 @@ const CLICK_ROWS = 4
 const SWEEP_MS = 2000
 const ASK_EVERY_MS = 10_000
 const CREW_PANE = 'crew'
-const howLong = (given: string) =>
-  `How much longer for the subagent "${given}"? Briefly: what stage is it at, and roughly how long until its result?`
 
 // A random profession none of `taken` has; any one once all are taken.
 const pickJob = (...taken: number[]) => {
@@ -96,7 +115,7 @@ const pickJob = (...taken: number[]) => {
 // What the clicks of one run punish with: drawn at its first click from a
 // shuffled bag of every weapon, so each comes up as often as the others, and
 // kept until the mascot leaves.
-const WEAPONS: Weapon[] = ['lasso', 'gun']
+const WEAPONS: Weapon[] = ['lasso', 'gun', 'tomato']
 const pickWeapon = async ($: EngineInterface): Promise<Weapon> => {
   const left = await read($, weapons)
   const bag = left.length > 0 ? left : [...WEAPONS].sort(() => Math.random() - 0.5)
@@ -226,24 +245,25 @@ const WALK_IN_MS = 1100
 // A lash is drawn while it can still be seen: its crack and the pain after;
 // a shot, while its last mini still hops.
 const LASH_FRESH_MS = PAIN_MS + 150
-const playsFor = (one: Lash) => (one.weapon === 'gun' ? shotMs(one.shots ?? 1) : WHIP_MS)
-const freshFor = (one: Lash) => (one.weapon === 'gun' ? shotMs(one.shots ?? 1) + 150 : LASH_FRESH_MS)
+const playsFor = (one: Lash) =>
+  one.weapon === 'gun' ? shotMs(one.shots ?? 1) : one.weapon === 'tomato' ? tossMs(one.shots ?? 1) : WHIP_MS
+const freshFor = (one: Lash) => (one.weapon === 'gun' || one.weapon === 'tomato' ? playsFor(one) + 150 : LASH_FRESH_MS)
 
 // A redraw may load every drawing again; each is drawn as far into its
 // animation as it already got, so a redraw (a lash, a mini coming or going)
 // never makes anyone start their swing over.
-const miniSvg = (mini: Mini, job: Job, at: number) =>
+const miniSvg = (mini: Mini, job: Job, at: number, w: Words, language: Lang) =>
   mini.isDone
-    ? { source: miniGone(), alt: 'Клодик сдал работу и пошёл к Клоду' }
+    ? { source: miniGone(), alt: w.miniGone }
     : {
         source:
           mini.isSettled || at - mini.at > WALK_IN_MS
-            ? shiftTime(miniAtDesk(job), (at - mini.at) / 1000)
-            : shiftTime(
-                miniWorking(job, Math.max(0, mini.at - at) / 1000),
-                Math.max(0, at - mini.at) / 1000,
+            ? localizeArt(shiftTime(miniAtDesk(job), (at - mini.at) / 1000), language)
+            : localizeArt(
+                shiftTime(miniWorking(job, Math.max(0, mini.at - at) / 1000), Math.max(0, at - mini.at) / 1000),
+                language,
               ),
-        alt: `Клодик работает: ${job.name}`,
+        alt: w.miniWorking(job.name[language]),
       }
 
 const shown = (now: Scene) => now.minis.filter(mini => mini.slot < MAX_MINIS)
@@ -356,14 +376,19 @@ type Click = { button: 'left' | 'right'; x: number; y: number; columns: number; 
 const clickOf = (data: unknown): Click | undefined =>
   typeof data === 'object' && data !== null && 'button' in data ? (data as Click) : undefined
 
-// Where a click on a region hung from the row's bottom lands, in the
-// drawing's units from the stage's left and the row's top.
+// How many cells left of the click the person's hand is drawn, so the mouse
+// pointer, which hangs down and right from the click, does not hide the
+// weapon.
+const HAND_LEFT_CELLS = 2
+
+// Where the person's hand is for a click on a region hung from the row's
+// bottom, in the drawing's units from the stage's left and the row's top.
 const pointOf = (click: Click) => {
   if (cellUnits === undefined || typeof click.x !== 'number') return undefined
   const fromBottom = (click.rows - click.y - 0.5) * cellUnits * CELL_ASPECT
 
   return {
-    x: Math.max(0, (click.x + 0.5) * cellUnits),
+    x: Math.max(0, (click.x + 0.5 - HAND_LEFT_CELLS) * cellUnits),
     y: Math.min(HEIGHT - 2, Math.max(2, HEIGHT - fromBottom)),
   }
 }
@@ -379,7 +404,7 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   const held = await read($, armed)
   const weapon = held ?? (await pickWeapon($))
   if (held === null) await arm($, weapon)
-  // The busy minis in sight, each shot at once.
+  // The busy minis in sight, each shot (or hit with a tomato) in turn.
   const shots = kind === 'minis' ? shown(now).filter(mini => !mini.isDone).length : 1
   const at = await $.clock.now()
   // Under the main mascot's feet, somewhere between its legs.
@@ -394,7 +419,7 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
       last.n > 0 && last.kind === kind && (last.weapon ?? 'lasso') === weapon && at - last.at < PAIN_MS,
     ...(from === undefined ? {} : { from }),
     weapon,
-    ...(weapon === 'gun' ? { hitX, shots } : {}),
+    ...(weapon === 'gun' ? { hitX, shots } : weapon === 'tomato' ? { shots } : {}),
   }))
   await update($, whip, () => kind)
   if (weapon === 'gun') {
@@ -402,6 +427,13 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
       const bang = () => void $.audio.play({ asset: 'sounds/gunshot.wav' }).catch(() => undefined)
       if (k === 0) bang()
       else $.clock.after(Math.round((shotAt(k) - shotAt(0)) * 1000), bang)
+    }
+  } else if (weapon === 'tomato') {
+    // Each squelches as it lands.
+    for (let k = 0; k < shots; k += 1) {
+      $.clock.after(Math.round(splatAt(k) * 1000), () => {
+        void $.audio.play({ asset: 'sounds/splat.wav' }).catch(() => undefined)
+      })
     }
   } else void $.audio.play({ asset: 'sounds/whip.wav' }).catch(() => undefined)
   startFrames($)
@@ -411,18 +443,8 @@ async function crackWhip($: EngineInterface, from?: { x: number; y: number }, is
   })
 }
 
-const STATUS_WORDS: Record<string, string> = {
-  pending: 'запускается',
-  running: 'работает',
-  waiting: 'ждёт фоновую задачу',
-  idle: 'ждёт сообщения',
-  completed: 'готово',
-  failed: 'ошибка',
-  killed: 'остановлен',
-}
-
-const statusWord = (agent: AgentInfo | undefined) =>
-  agent === undefined ? 'нет в списке задач' : (STATUS_WORDS[agent.status] ?? agent.status)
+const statusWord = (agent: AgentInfo | undefined, w: Words) =>
+  agent === undefined ? w.notListed : (w.status[agent.status] ?? agent.status)
 
 // The colour of a status's dot in the crew pane.
 const STATUS_COLORS: Record<string, string> = {
@@ -435,20 +457,11 @@ const STATUS_COLORS: Record<string, string> = {
   killed: 'error',
 }
 
-// `1 клодик`, `2 клодика`, `5 клодиков`.
-const plural = (n: number, [one, few, many]: readonly [string, string, string]) => {
-  const tens = n % 100
-  const units = n % 10
-  const word = tens >= 11 && tens <= 14 ? many : units === 1 ? one : units >= 2 && units <= 4 ? few : many
-
-  return `${n} ${word}`
-}
-
-// `1:05`, `12 с`: how long a mini has been at it.
-const sinceText = (ms: number) => {
+// `1:05`, `12 s`: how long a mini has been at it.
+const sinceText = (ms: number, w: Words) => {
   const seconds = Math.max(0, Math.round(ms / 1000))
 
-  return seconds < 60 ? `${seconds} с` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+  return seconds < 60 ? w.seconds(seconds) : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 async function agentsNow($: EngineInterface) {
@@ -467,15 +480,16 @@ async function askAboutMini($: EngineInterface, id: string) {
   const mini = now.minis.find(one => one.id === id)
   if (mini === undefined || mini.isDone) return
   const at = await $.clock.now()
+  const w = await wordsOf($)
   const last = askedAt.get(id) ?? -ASK_EVERY_MS
   if (at - last < ASK_EVERY_MS) {
-    $.ui.toast(`Уже спросил — про этого клодика можно снова через ${Math.ceil((ASK_EVERY_MS - (at - last)) / 1000)} с`)
+    $.ui.toast(w.alreadyAsked(Math.ceil((ASK_EVERY_MS - (at - last)) / 1000)))
 
     return
   }
   askedAt.set(id, at)
-  const text = howLong(mini.given || mini.task)
-  $.ui.toast(`Спросил Клода, сколько осталось клодику «${mini.given || mini.task}»`)
+  const text = w.howLong(mini.given || mini.task)
+  $.ui.toast(w.asked(mini.given || mini.task))
   if (now.isWorking) {
     try {
       await $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] } })
@@ -489,7 +503,7 @@ async function askAboutMini($: EngineInterface, id: string) {
   try {
     await $.prompt.submit({ text, asUser: true })
   } catch {
-    $.ui.toast('Не получилось отправить вопрос в чат')
+    $.ui.toast(w.askFailed)
   }
 }
 
@@ -499,30 +513,32 @@ async function stopMini($: EngineInterface, id: string) {
   const mini = (await read($, scene)).minis.find(one => one.id === id)
   await update($, popup, () => null)
   if (mini === undefined || mini.isDone) return
+  const w = await wordsOf($)
   try {
     const stopped = await $.tool.call({ tool: 'TaskStop', task_id: id })
     if ('deny' in stopped && stopped.deny !== undefined) {
-      $.ui.toast(`Не удалось остановить: ${stopped.deny}`)
+      $.ui.toast(w.stopFailed(stopped.deny))
 
       return
     }
   } catch (error) {
-    $.ui.toast(`Не удалось остановить: ${error instanceof Error ? error.message : String(error)}`)
+    $.ui.toast(w.stopFailed(error instanceof Error ? error.message : String(error)))
 
     return
   }
-  $.ui.toast(`Клодик «${mini.given || mini.task}» остановлен`)
+  $.ui.toast(w.stopped(mini.given || mini.task))
   waitsOf.delete(id)
   await sendMiniHome($, id)
 }
 
 // The crew's pane: every mini's task and status, side by side with the chat.
 async function openCrew($: EngineInterface) {
+  const w = await wordsOf($)
   try {
-    const opened = await $.ui.open({ id: CREW_PANE, title: 'Клодики' })
-    if (!opened.isPlaced) $.ui.toast('Панель клодиков не помещается: расширь окно')
+    const opened = await $.ui.open({ id: CREW_PANE, title: w.paneTitle })
+    if (!opened.isPlaced) $.ui.toast(w.paneTooNarrow)
   } catch {
-    $.ui.toast('Не получилось открыть панель клодиков')
+    $.ui.toast(w.paneFailed)
   }
 }
 
@@ -611,6 +627,8 @@ function popupCard(
   mini: Mini,
   agent: AgentInfo | undefined,
   at: number,
+  w: Words,
+  language: Lang,
 ) {
   const { Box, Button, Text } = elements
   const close = () => void update($, popup, () => null)
@@ -620,10 +638,10 @@ function popupCard(
     return (
       <Box key={`menu-${mini.id}`} flexDirection="column" borderStyle="round" borderColor={ORANGE} paddingX={1}>
         <Text bold>{`${job.emoji}${mini.model === '' ? '' : ` ${mini.model}`}`}</Text>
-        <Button key={`menu-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
+        <Button key={`menu-stop-${mini.id}`} label={w.stop} plain onPress={() => void stopMini($, mini.id)} />
         <Button
           key={`menu-ask-${mini.id}`}
-          label="⏱ Сколько осталось?"
+          label={w.howLongButton}
           plain
           onPress={() => {
             close()
@@ -632,11 +650,11 @@ function popupCard(
         />
         <Button
           key={`menu-more-${mini.id}`}
-          label="ℹ️ Подробнее"
+          label={w.details}
           plain
           onPress={() => void update($, popup, () => ({ id: mini.id, kind: 'details' as const }))}
         />
-        <Button key={`menu-close-${mini.id}`} label="✕ Закрыть" plain onPress={close} />
+        <Button key={`menu-close-${mini.id}`} label={w.close} plain onPress={close} />
       </Box>
     )
   }
@@ -644,13 +662,13 @@ function popupCard(
   return (
     <Box key={`details-${mini.id}`} flexDirection="column" borderStyle="round" borderColor={ORANGE} paddingX={1}>
       <Text bold>{title}</Text>
-      <Text>{`Профессия: ${job.name}${mini.model === '' ? '' : ` · ${mini.model}`}${mini.type === '' ? '' : ` · агент ${mini.type}`}`}</Text>
-      <Text>{`Статус: ${statusWord(agent)} · ${sinceText(at - mini.at)} · инструментов: ${mini.tools}`}</Text>
-      <Text>{`Сейчас: ${mini.task}`}</Text>
-      {mini.recent.length > 1 && <Text dimColor>{`Недавно: ${mini.recent.slice(1).join(' ← ')}`}</Text>}
+      <Text>{`${w.job(job.name[language])}${mini.model === '' ? '' : ` · ${mini.model}`}${mini.type === '' ? '' : ` · ${w.agent(mini.type)}`}`}</Text>
+      <Text>{w.statusLine(statusWord(agent, w), sinceText(at - mini.at, w), mini.tools)}</Text>
+      <Text>{w.now(mini.task)}</Text>
+      {mini.recent.length > 1 && <Text dimColor>{w.recently(mini.recent.slice(1).join(' ← '))}</Text>}
       <Box flexDirection="row" gap={2}>
-        <Button key={`details-stop-${mini.id}`} label="⏹ Остановить" plain onPress={() => void stopMini($, mini.id)} />
-        <Button key={`details-close-${mini.id}`} label="✕ Закрыть" plain onPress={close} />
+        <Button key={`details-stop-${mini.id}`} label={w.stop} plain onPress={() => void stopMini($, mini.id)} />
+        <Button key={`details-close-${mini.id}`} label={w.close} plain onPress={close} />
       </Box>
     </Box>
   )
@@ -661,7 +679,15 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await patchScene($, () => IDLE)
     await update($, popup, () => null)
+    await update($, isGearOpen, () => false)
     await arm($, null)
+    let stored: unknown
+    try {
+      stored = await $.store.get(LANG_KEY)
+    } catch {
+      stored = undefined
+    }
+    await update($, lang, () => (isLang(stored) ? stored : DEFAULT_LANG))
 
     return next(e)
   })
@@ -800,6 +826,7 @@ export const register: Register = on => {
           ? { ...click, x: click.x + startsAt / cellUnits }
           : click
       await update($, popup, () => null)
+      await update($, isGearOpen, () => false)
       await crackWhip($, at === undefined ? undefined : pointOf(at), e.element === 'lash')
     } else if (e.element.startsWith('mini:')) {
       const id = e.element.slice('mini:'.length)
@@ -820,33 +847,32 @@ export const register: Register = on => {
     const now = await read($, scene)
     const at = await $.clock.now()
     const agents = (await agentsNow($)) ?? []
+    const language = await read($, lang)
+    const w = WORDS[language] ?? WORDS[DEFAULT_LANG]
     const busy = now.minis.filter(mini => !mini.isDone)
     const job = jobOf(Math.max(0, now.job))
     const head = !isOnStage(now)
-      ? 'Клод отдыхает под инпутом'
+      ? w.resting
       : busy.length > 0
-        ? `Клод-${job.name.toLowerCase()} ждёт ${plural(busy.length, ['клодика', 'клодиков', 'клодиков'])}`
+        ? w.waitingOn(job.name[language], busy.length)
         : now.isWorking
-          ? `Клод-${job.name.toLowerCase()} работает`
-          : 'Все задачи выполнены'
+          ? w.workingAs(job.name[language])
+          : w.allDone
 
     return (
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="column">
           <Text bold>{`${isOnStage(now) ? job.emoji : '💤'} ${head}`}</Text>
           {busy.length > 0 && (
-            <Text dimColor>Наведи на клодика над инпутом, чтобы увидеть его задачу; правый клик — меню.</Text>
+            <Text dimColor>{w.hint}</Text>
           )}
         </Box>
-        {busy.length === 0 && <Text dimColor>Клодиков сейчас нет.</Text>}
+        {busy.length === 0 && <Text dimColor>{w.noMinis}</Text>}
         {busy.map(mini => {
           const agent = agents.find(one => one.id === mini.id)
           const miniJob = jobOf(mini.job)
           const earlier = mini.recent.slice(1, 4)
-          const facts = [
-            sinceText(at - mini.at),
-            plural(mini.tools, ['шаг', 'шага', 'шагов']),
-          ].join(' · ')
+          const facts = [sinceText(at - mini.at, w), w.steps(mini.tools)].join(' · ')
 
           return (
             <Box
@@ -860,8 +886,8 @@ export const register: Register = on => {
               <Box flexDirection="row" gap={2} alignItems="center">
                 {Svg !== undefined && (
                   <Svg
-                    source={shiftTime(miniAtDesk(miniJob), (at - mini.at) / 1000)}
-                    alt={`Клодик-${miniJob.name.toLowerCase()}`}
+                    source={localizeArt(shiftTime(miniAtDesk(miniJob), (at - mini.at) / 1000), language)}
+                    alt={w.miniOf(miniJob.name[language])}
                     width={MINI_WIDTH * SCALE}
                     height={HEIGHT * SCALE}
                   />
@@ -874,25 +900,25 @@ export const register: Register = on => {
                     <Text dimColor>{`${mini.model}${mini.type === '' ? '' : ` · ${mini.type}`}`}</Text>
                   )}
                   <Text>
-                    <Text color={STATUS_COLORS[agent?.status ?? ''] ?? 'inactive'}>{`● ${statusWord(agent)}`}</Text>
+                    <Text color={STATUS_COLORS[agent?.status ?? ''] ?? 'inactive'}>{`● ${statusWord(agent, w)}`}</Text>
                     <Text dimColor>{`  ${facts}`}</Text>
                   </Text>
                 </Box>
               </Box>
               <Box flexDirection="column">
                 <Text>
-                  <Text dimColor>{'Сейчас  '}</Text>
+                  <Text dimColor>{w.nowLabel}</Text>
                   <Text>{mini.task}</Text>
                 </Text>
                 {earlier.map((step, index) => (
                   <Text key={`crew-step-${mini.id}-${index}`} dimColor>
-                    {`${index === 0 ? 'Ранее   ' : '        '}${step}`}
+                    {`${index === 0 ? w.earlierLabel : ' '.repeat(w.earlierLabel.length)}${step}`}
                   </Text>
                 ))}
               </Box>
               <Box flexDirection="row" gap={1}>
-                <Button key={`crew-stop-${mini.id}`} label="⏹ Остановить" onPress={() => void stopMini($, mini.id)} />
-                <Button key={`crew-ask-${mini.id}`} label="⏱ Сколько осталось?" onPress={() => void askAboutMini($, mini.id)} />
+                <Button key={`crew-stop-${mini.id}`} label={w.stop} onPress={() => void stopMini($, mini.id)} />
+                <Button key={`crew-ask-${mini.id}`} label={w.howLongButton} onPress={() => void askAboutMini($, mini.id)} />
               </Box>
             </Box>
           )
@@ -910,6 +936,10 @@ export const register: Register = on => {
     const minis = now.minis.slice(0, MAX_MINIS)
     const onWhip = () => void crackWhip($)
     const at = await $.clock.now()
+    const language = await read($, lang)
+    const w = WORDS[language] ?? WORDS[DEFAULT_LANG]
+    const gearOpen = await read($, isGearOpen)
+    const toggleGear = () => void update($, isGearOpen, open => !open)
     // The band knows when the main turn is over: a stage still showing it at
     // work has missed its end.
     if (now.isWorking && !e.props.isWorking && at - turnStartedAt > 3000) void settleMainTurn($)
@@ -921,12 +951,12 @@ export const register: Register = on => {
       startFrames($)
       const isOdd = (await read($, tick)) % 2 === 1
       const whipping = await read($, whip)
-      const isGun = whipping !== 'none' && (await read($, lash)).weapon === 'gun'
+      const weapon = whipping === 'none' ? undefined : ((await read($, lash)).weapon ?? 'lasso')
       const pose: TermPose =
         whipping === 'minis'
-          ? isGun ? 'shoot' : 'whip'
+          ? weapon === 'gun' ? 'shoot' : weapon === 'tomato' ? 'toss' : 'whip'
           : whipping === 'self'
-            ? isGun ? 'hop' : 'ouch'
+            ? weapon === 'gun' ? 'hop' : weapon === 'tomato' ? 'splat' : 'ouch'
             : isWaiting
               ? 'wait'
               : now.isWorking
@@ -936,7 +966,11 @@ export const register: Register = on => {
         termMain(pose, job, isOdd),
         ...minis.map((mini, i) =>
           termMini(
-            mini.isDone ? 'salute' : whipping === 'minis' ? (isGun ? 'hop' : 'ouch') : 'work',
+            mini.isDone
+              ? 'salute'
+              : whipping === 'minis'
+                ? weapon === 'gun' ? 'hop' : weapon === 'tomato' ? 'splat' : 'ouch'
+                : 'work',
             jobOf(mini.job),
             isOdd !== (i % 2 === 1),
           ),
@@ -954,16 +988,31 @@ export const register: Register = on => {
               </Box>
             ))}
           </Box>
-          <Box flexDirection="row" gap={2}>
-            <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />
-            {isWaiting && <Button key="crew" label="📋 Клодики" plain onPress={() => void openCrew($)} />}
+          <Box flexDirection="row" justifyContent="space-between" width="100%">
+            <Box flexDirection="row" gap={2}>
+              <Button key="whip" label={w.faster} plain onPress={onWhip} />
+              {isWaiting && <Button key="crew" label={w.crewButton} plain onPress={() => void openCrew($)} />}
+            </Box>
+            {/* The gear, in the right corner: its languages open beside it. */}
+            <Box flexDirection="row" gap={2}>
+              {gearOpen &&
+                LANGS.map(one => (
+                  <Button
+                    key={`lang-${one}`}
+                    label={`${one === language ? '● ' : '○ '}${LANG_NAMES[one]}`}
+                    plain
+                    onPress={() => void setLang($, one)}
+                  />
+                ))}
+              <Button key="gear" label="⚙" plain onPress={toggleGear} />
+            </Box>
           </Box>
         </Box>
       )
     }
 
     const elements = $.ui.resolve(e)
-    const { Box, Button, Svg } = elements
+    const { Box, Button, Svg, Text } = elements
     // A click on the main mascot cracks the whip, where the surface can take
     // the click (a Client); elsewhere the FASTER button does.
     const Client = 'Client' in elements ? elements.Client : undefined
@@ -975,24 +1024,30 @@ export const register: Register = on => {
       lastLash.n > 0 && lastLash.kind === 'minis' && at - lastLash.at < freshFor(lastLash)
         ? lastLash.at
         : undefined
-    const lashFor = lastLash.weapon === 'gun' ? shotMs(lastLash.shots ?? 1) / 1000 : undefined
+    const lashFor =
+      lastLash.weapon === 'gun'
+        ? shotMs(lastLash.shots ?? 1) / 1000
+        : lastLash.weapon === 'tomato'
+          ? splatAt(Math.max(1, lastLash.shots ?? 1) - 1)
+          : undefined
+    const jobName = job.name[language]
     const drawn = now.leaveAt > 0
-      ? { source: jumpingDown((at - now.leaveAt) / 1000, job), alt: 'Клод прыгает под инпут' }
+      ? { source: jumpingDown((at - now.leaveAt) / 1000, job), alt: w.jumpingDown }
       : isWaiting
       ? handoffLeft > 0
         ? {
             source: finishing(job, handoffLeft / 1000),
-            alt: `Клод доделывает свою задачу (${job.name}) и зовёт клодиков в громкоговоритель`,
+            alt: w.finishing(jobName),
           }
         : {
             source: shiftTime(
               waiting(job, lashAtWait === undefined ? undefined : (lashAtWait - now.enterAt) / 1000, lashFor),
               (at - now.enterAt) / 1000,
             ),
-            alt: 'Клод ждёт сабагентов и поглядывает на часы' }
+            alt: w.waiting }
       : now.isWorking
-        ? { source: shiftTime(working(job), (at - now.enterAt) / 1000), alt: `Клод работает: ${job.name}` }
-        : { source: saluting(job), alt: 'Клод отдаёт честь: всё готово' }
+        ? { source: shiftTime(working(job), (at - now.enterAt) / 1000), alt: w.working(jobName) }
+        : { source: saluting(job), alt: w.saluting }
     const sinceEnter = at - now.enterAt
     const last = await read($, lash)
     const isFresh = last.n > 0 && last.row === rowOf(now) && at - last.at < freshFor(last)
@@ -1032,7 +1087,7 @@ export const register: Register = on => {
             ),
           )
     const openCard = open !== null && openMini !== undefined
-      ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at)
+      ? popupCard(elements, $, open.kind, openMini, (await agentsNow($))?.find(one => one.id === openMini.id), at, w, language)
       : undefined
     const fxW = fxWidth(stage, isFresh && last.kind === 'self' ? last.from : undefined)
     // The click regions reach as far as the lash's drawing: a picture takes
@@ -1051,7 +1106,7 @@ export const register: Register = on => {
     // redraw of the band.
     return (
       <Box flexDirection="column" alignItems="flex-start" width="100%">
-        {Client === undefined && <Button key="whip" label="🪢 FASTER" plain onPress={onWhip} />}
+        {Client === undefined && <Button key="whip" label={w.faster} plain onPress={onWhip} />}
         {Client !== undefined && (
           // Under everything else, across the whole band: a click on the
           // bare band cracks the whip.
@@ -1063,6 +1118,23 @@ export const register: Register = on => {
               width="100%"
               height={CLICK_ROWS}
             />
+          </Box>
+        )}
+        {gearOpen && (
+          // The gear's languages, in a row of their own in the right corner,
+          // clear of the gear itself.
+          <Box key="gear-row" position="relative" flexDirection="row" justifyContent="flex-end" width="100%" paddingRight={3}>
+            <Box key="gear-card" flexDirection="column" borderStyle="round" borderColor={ORANGE} paddingX={1}>
+              <Text bold>{`⚙ ${w.language}`}</Text>
+              {LANGS.map(one => (
+                <Button
+                  key={`lang-${one}`}
+                  label={`${one === language ? '● ' : '○ '}${LANG_NAMES[one]}`}
+                  plain
+                  onPress={() => void setLang($, one)}
+                />
+              ))}
+            </Box>
           </Box>
         )}
         {openCard !== undefined && openMini !== undefined && (
@@ -1081,7 +1153,7 @@ export const register: Register = on => {
         <Box key="row" flexDirection="row" alignItems="flex-end">
           <Box key="main">
             <Svg
-              source={gap > 0 ? widen(main.source, MAIN_WIDTH + gap) : main.source}
+              source={localizeArt(gap > 0 ? widen(main.source, MAIN_WIDTH + gap) : main.source, language)}
               alt={main.alt}
               width={(MAIN_WIDTH + gap) * SCALE}
               height={HEIGHT * SCALE}
@@ -1090,8 +1162,8 @@ export const register: Register = on => {
           {slots.map((mini, slot) => {
             const plain =
               mini === undefined
-                ? { source: miniGone(), alt: 'Свободное место' }
-                : miniSvg(mini, jobOf(mini.job), at)
+                ? { source: miniGone(), alt: w.emptySlot }
+                : miniSvg(mini, jobOf(mini.job), at, w, language)
             // Shot at in turn, left to right, the busy ones alone.
             const shotK = slots.slice(0, slot).filter(one => one !== undefined && !one.isDone).length
             const drawn =
@@ -1118,7 +1190,12 @@ export const register: Register = on => {
             // from a click beyond it: a picture is never squeezed into a
             // narrower box.
             <Box key="whip-fx" position="absolute" top={0} left={0} width={`${Math.ceil((fxW / width) * 100)}%`}>
-              <Svg source={fx} alt={isShot ? 'Выстрел' : 'Хлыст'} width={fxW * SCALE} height={HEIGHT * SCALE} />
+              <Svg
+                source={fx}
+                alt={isShot ? w.shot : isFresh && last.weapon === 'tomato' ? w.tomato : w.lasso}
+                width={fxW * SCALE}
+                height={HEIGHT * SCALE}
+              />
             </Box>
           )}
           {Client !== undefined && (
@@ -1180,7 +1257,7 @@ export const register: Register = on => {
                         <Box position="absolute" bottom={0} left={-1000} width="100%" hover={{ left: 0 }}>
                           <Svg
                             source={bubble.source}
-                            alt={`Клодик говорит: ${bubbleText(busy)}`}
+                            alt={w.miniSays(bubbleText(busy))}
                             width={bubble.width}
                             height={bubble.height}
                           />
@@ -1217,6 +1294,11 @@ export const register: Register = on => {
               )}
             </Box>
           )}
+        </Box>
+        {/* The gear, in the band's right corner: over everything else, so a
+            click on it never cracks the whip. */}
+        <Box key="gear" position="absolute" top={0} right={0}>
+          <Button key="gear-button" label="⚙" plain onPress={toggleGear} />
         </Box>
       </Box>
     )

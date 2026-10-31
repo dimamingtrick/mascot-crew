@@ -19,7 +19,7 @@ const actors = async (ui: { findAll: (q: { type: 'Svg' }) => Promise<unknown[]> 
   (await ui.findAll({ type: 'Svg' })).filter(svg => {
     const drawn = JSON.stringify(svg)
 
-    return !drawn.includes('Клодик говорит') && !drawn.includes('Следующий вопрос') && !drawn.includes('"alt":""')
+    return !drawn.includes('Mini says') && !drawn.includes('"alt":""')
   })
 
 // The whip: the FASTER button on the terminal, a click on the main mascot
@@ -35,7 +35,7 @@ const lash = (ui: Drawing, surface: 'terminal' | 'desktop') =>
     : ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'lash' })
 
 // A run punishes with a weapon picked at random; this arms it with one.
-const pin = (on: On, weapon: 'lasso' | 'gun') =>
+const pin = (on: On, weapon: 'lasso' | 'gun' | 'tomato') =>
   on('state.get', { plugin: 'mascot-crew', key: 'armed' }, () => ({
     value: { value: weapon, version: 1 },
   }))
@@ -181,9 +181,9 @@ test('one task keeps one profession across its turns', async ($, on) => {
 test('hovering a mini shows the task its subagent was given', async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
-  await $.agent.spawn({ prompt: 'dig', description: 'Найти баг в авторизации' } as never)
+  await $.agent.spawn({ prompt: 'dig', description: 'Find the auth bug' } as never)
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
-  expect(JSON.stringify(await ui.findAll({ type: 'Svg' }))).toContain('Клодик говорит: Haiku: Найти баг в авторизации')
+  expect(JSON.stringify(await ui.findAll({ type: 'Svg' }))).toContain('Mini says: Haiku: Find the auth bug')
   await ui.unmount()
 })
 
@@ -193,7 +193,7 @@ test('every mini on stage has a profession of its own', async ($, on) => {
   for (let i = 0; i < 6; i += 1) await $.agent.spawn({ prompt: 'dig' } as never)
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   const jobs = (await ui.findAll({ type: 'Svg' }))
-    .map(svg => /Клодик работает: ([^:]+)/.exec(JSON.stringify(svg))?.[1])
+    .map(svg => /Mini at work: ([^:]+)/.exec(JSON.stringify(svg))?.[1])
     .filter(job => job !== undefined)
   expect(jobs).toHaveLength(6)
   expect(new Set(jobs).size).toBe(6)
@@ -203,19 +203,19 @@ test('every mini on stage has a profession of its own', async ($, on) => {
 test('the hover keeps the task given while the subagent calls tools', async ($, on) => {
   engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
-  await $.agent.spawn({ prompt: 'dig', description: 'Тестовый сабагент' } as never)
+  await $.agent.spawn({ prompt: 'dig', description: 'Test subagent' } as never)
   await $.tool.call({ tool: 'Bash', command: 'sleep 95', description: 'Wait for 95 seconds', agentId: 'mini-1' } as never)
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   const drawn = JSON.stringify(await ui.findAll({ type: 'Svg' }))
-  expect(drawn).toContain('Клодик говорит: Haiku: Тестовый сабагент')
-  expect(drawn).not.toContain('Клодик говорит: Haiku: Wait for 95 seconds')
+  expect(drawn).toContain('Mini says: Haiku: Test subagent')
+  expect(drawn).not.toContain('Mini says: Haiku: Wait for 95 seconds')
   await ui.unmount()
 })
 
 test('a right click on a mini opens its menu, and Stop stops its subagent', async ($, on) => {
   const clock = engine(on)
   await $.turn.start({ text: 'go', turnId: 't' })
-  await $.agent.spawn({ prompt: 'dig', description: 'Копать' } as never)
+  await $.agent.spawn({ prompt: 'dig', description: 'Dig' } as never)
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
     find: (q: { key: string }) => Promise<unknown>
   }
@@ -288,7 +288,7 @@ test('a click anywhere on the band cracks the whip', async ($, on) => {
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Drawing & {
     findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
   }
-  const lashes = async () => (await ui.findAll({ type: 'Svg' })).filter(svg => JSON.stringify(svg).includes('Хлыст')).length
+  const lashes = async () => (await ui.findAll({ type: 'Svg' })).filter(svg => JSON.stringify(svg).includes('Lasso')).length
   expect(await lashes()).toBe(0)
   await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', in: 'lash-backdrop' })
   expect(await lashes()).toBe(1)
@@ -305,8 +305,8 @@ test('with nobody else to lash, the lasso flies from where the person clicked to
   // The main mascot's region is 14 cells across: 8 units a cell.
   await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
   await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
-  const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст'))
-  expect(whip).toContain('translate(324.0,')
+  const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Lasso'))
+  expect(whip).toContain('translate(308.0,')
 })
 
 test('quick clicks each crack the whip, a press counting once, the next one left of the last too', async ($, on) => {
@@ -317,7 +317,7 @@ test('quick clicks each crack the whip, a press counting once, the next one left
     findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
   }
   const lash = async () =>
-    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст')) ?? ''
+    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Lasso')) ?? ''
   await ui.pointer({ type: 'down', x: 60, y: 1, button: 'left', in: 'lash-backdrop' })
   await ui.pointer({ type: 'up', x: 60, y: 1, button: 'left', in: 'lash-backdrop' })
   expect(await lash()).toContain('id=\\"lash1\\"')
@@ -345,7 +345,7 @@ test('the minis stand from about the band middle, and a click between them and t
   // to its middle: 112 + 338 units.
   expect(Math.max(...(await widths()))).toBe(480)
   await ui.post({ button: 'left', x: 10, y: 3, columns: 42, rows: 4 }, { in: 'lash-at-112' })
-  const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст'))
+  const whip = (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Lasso'))
   expect(whip).toContain('id=\\"lash1\\"')
 })
 
@@ -358,14 +358,14 @@ test('a lash flying from past the stage leaves a click region over its tail', as
     findAll: (q: { type: 'Svg' }) => Promise<unknown[]>
   }
   const lash = async () =>
-    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Хлыст')) ?? ''
+    (await ui.findAll({ type: 'Svg' })).map(svg => JSON.stringify(svg)).find(svg => svg.includes('Lasso')) ?? ''
   await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
   await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
-  expect(await lash()).toContain('translate(324.0,')
+  expect(await lash()).toContain('translate(308.0,')
   // 112 units on, 5 cells in: the same spot the first click flew from.
   await ui.pointer({ type: 'down', x: 26, y: 3, button: 'left', in: 'lash-at-112' })
   expect(await lash()).toContain('id=\\"lash2\\"')
-  expect(await lash()).toContain('translate(324.0,')
+  expect(await lash()).toContain('translate(308.0,')
 })
 
 test('the crew pane shows each mini as a card: its picture, task, model, status and buttons', async ($, on) => {
@@ -378,10 +378,10 @@ test('the crew pane shows each mini as a card: its picture, task, model, status 
     surface: 'desktop',
     component: 'Pane',
     requestId: 'crew',
-    props: { title: 'Клодики', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    props: { title: 'Mini Claudes', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
   } as never)) as unknown as { findAll: (q: { type: string }) => Promise<unknown[]> }
   const text = JSON.stringify(await pane.findAll({ type: 'Text' }))
-  expect(text).toContain('ждёт 2 клодиков')
+  expect(text).toContain('is waiting on 2 minis')
   expect(text).toContain('Dig a hole')
   expect(text).toContain('Fill it in')
   expect((await pane.findAll({ type: 'Svg' })).length).toBe(2)
@@ -414,13 +414,13 @@ test('with the revolver, the person shoots at the mascot feet: it hops, with a b
   await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
   await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
   const all = await drawings(ui)
-  const shot = all.find(svg => svg.includes('Выстрел')) ?? ''
+  const shot = all.find(svg => svg.includes('Gunshot')) ?? ''
   expect(shot).toContain('id=\\"lash1\\"')
   // The bullet lands at the feet, and the 💥 with it.
   expect(shot).toContain('💥')
-  expect(all.some(svg => svg.includes('Хлыст'))).toBe(false)
+  expect(all.some(svg => svg.includes('Lasso'))).toBe(false)
   // The mascot's own drawing hops; its work stays where it is.
-  expect(all.find(svg => svg.includes('Клод работает')) ?? '').toContain('additive=\\"sum\\"')
+  expect(all.find(svg => svg.includes('Claude at work')) ?? '').toContain('additive=\\"sum\\"')
   expect(played()).toBe(1)
 })
 
@@ -434,8 +434,8 @@ test('with the revolver, the mascot shoots at each busy mini in turn, a bang for
   const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
   await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', in: 'lash-backdrop' })
   const all = await drawings(ui)
-  expect(all.some(svg => svg.includes('Выстрел'))).toBe(true)
-  const minis = all.filter(svg => svg.includes('Клодик работает'))
+  expect(all.some(svg => svg.includes('Gunshot'))).toBe(true)
+  const minis = all.filter(svg => svg.includes('Mini at work'))
   expect(minis.length).toBe(2)
   for (const mini of minis) expect(mini).toContain('additive=\\"sum\\"')
   await clock.advance(1000)
@@ -461,6 +461,7 @@ test('one run punishes with one weapon, every click; the next run with the other
     const clip = JSON.stringify(e.clip)
     if (clip.includes('gunshot.wav')) played.push('gun')
     if (clip.includes('whip.wav')) played.push('lasso')
+    if (clip.includes('splat.wav')) played.push('tomato')
 
     return { value: undefined }
   })
@@ -483,4 +484,103 @@ test('one run punishes with one weapon, every click; the next run with the other
   const second = await run('t2')
   expect(new Set(second).size).toBe(1)
   expect(second[0]).not.toBe(first[0])
+})
+
+// The squelches played, as the engine beneath the mod hears them.
+const squelches = (on: On) => {
+  const played: string[] = []
+  on('audio.play', (_, e) => {
+    played.push(JSON.stringify(e.clip))
+
+    return { value: undefined }
+  })
+
+  return () => played.filter(clip => clip.includes('splat.wav')).length
+}
+
+test('with a tomato, the person throws it in the mascot face: it splats there, with a squelch', async ($, on) => {
+  pin(on, 'tomato')
+  const clock = engine(on)
+  const played = squelches(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.post({ size: { columns: 14, rows: 4 } }, { in: 'lash' })
+  await ui.post({ button: 'left', x: 40, y: 3, columns: 120, rows: 4 }, { in: 'lash-backdrop' })
+  const all = await drawings(ui)
+  const tomato = all.find(svg => svg.includes('Tomato')) ?? ''
+  expect(tomato).toContain('id=\\"lash1\\"')
+  // It flies from the person's hand, left of where they clicked.
+  expect(tomato).toContain('path=\\"M308.0 ')
+  expect(all.some(svg => svg.includes('Lasso') || svg.includes('Gunshot'))).toBe(false)
+  // The squelch comes as it lands, not as it leaves the hand.
+  expect(played()).toBe(0)
+  await clock.advance(400)
+  expect(played()).toBe(1)
+})
+
+test('with a tomato, the mascot throws one at each busy mini in turn, a squelch for each', async ($, on) => {
+  pin(on, 'tomato')
+  const clock = engine(on)
+  const played = squelches(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  await $.agent.spawn({ prompt: 'fill' } as never)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Band
+  await ui.pointer({ type: 'up', x: 30, y: 0, button: 'left', in: 'lash-backdrop' })
+  const tomato = (await drawings(ui)).find(svg => svg.includes('Tomato')) ?? ''
+  expect(tomato.split('<animateMotion').length - 1).toBe(2)
+  await clock.advance(1000)
+  expect(played()).toBe(2)
+})
+
+test('in the terminal, the mascot throws tomatoes at the minis and they splat', async ($, on) => {
+  pin(on, 'tomato')
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await $.agent.spawn({ prompt: 'dig' } as never)
+  const ui = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Band
+  await ui.press({ key: 'whip' })
+  const text = JSON.stringify(await ui.findAll({ type: 'Text' }))
+  expect(text).toContain('🍅')
+  expect(text).toContain('💦')
+})
+
+test('the band speaks English until its gear picks Ukrainian, which the next session keeps', async ($, on) => {
+  const stored = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_, e) => {
+    stored.set(e.key, e.value)
+
+    return { value: undefined }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }) as never)
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const label = async (ui: Band & { find: (q: { key: string }) => Promise<unknown> }, key: string) =>
+    JSON.stringify(await ui.find({ key }))
+  type Gear = Band & { find: (q: { key: string }) => Promise<unknown>; unmount: () => Promise<void> }
+  const term = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Gear
+  expect(await label(term, 'whip')).toContain('FASTER')
+  // The languages show once the gear is pressed.
+  expect(await term.find({ key: 'lang-uk' })).toBeUndefined()
+  await term.press({ key: 'gear' })
+  await term.press({ key: 'lang-uk' })
+  expect(await label(term, 'whip')).toContain('ШВИДШЕ')
+  expect(await term.find({ key: 'lang-uk' })).toBeUndefined()
+  expect(stored.get('lang')).toBe('uk')
+  await term.unmount()
+  // The desktop's gear sits in the band's corner; it speaks the same.
+  const desk = (await $.ui.mount({ ...BAND, surface: 'desktop' })) as unknown as Gear
+  expect(await desk.find({ key: 'gear-button' })).toBeDefined()
+  expect((await drawings(desk)).some(svg => svg.includes('Клод працює'))).toBe(true)
+  await desk.press({ key: 'gear-button' })
+  await desk.press({ key: 'lang-en' })
+  expect((await drawings(desk)).some(svg => svg.includes('Claude at work'))).toBe(true)
+  expect(stored.get('lang')).toBe('en')
+  // A new session reads it back.
+  stored.set('lang', 'uk')
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true } as never)
+  await $.turn.start({ text: 'go', turnId: 't2' })
+  const again = (await $.ui.mount({ ...BAND, surface: 'terminal' })) as unknown as Gear
+  expect(await label(again, 'whip')).toContain('ШВИДШЕ')
 })

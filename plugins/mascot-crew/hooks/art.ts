@@ -1,3 +1,6 @@
+import type { Weapon } from '../types'
+import type { Lang } from './i18n'
+
 // SVG drawings of the mascot. Animation is SMIL only: the desktop draws an
 // interactive Svg in a script-less frame where SMIL is what runs.
 
@@ -5,7 +8,8 @@ const O = '#D97757'
 const D = '#1f1f1f'
 
 export type Job = {
-  name: string
+  // What the job is called, in each language.
+  name: Record<Lang, string>
   emoji: string
   prop: string
   hat: string
@@ -39,7 +43,7 @@ const sparks = (x: number, y: number, dur: string) =>
 // the hand sits at (39,25) and the ground at y=40.
 export const JOBS: readonly Job[] = [
   {
-    name: 'шахтёр',
+    name: { en: 'miner', uk: 'шахтар' },
     emoji: '⛏️',
     prop: '🪨',
     hat: `${dome('#f2c230')}<rect x="18" y="0" width="4" height="3" fill="#fff6a8"/>`,
@@ -49,7 +53,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M51 40 L54 29 L61 24 L70 28 L74 40Z" fill="#8a8f98"/><path d="M60 31 l3 -3 l3 3 l-3 3Z" fill="#4dd0e1"/>${sparks(56, 22, '0.42s')}`,
   },
   {
-    name: 'строитель',
+    name: { en: 'builder', uk: 'будівельник' },
     emoji: '🔨',
     prop: '🧱',
     hat: `${dome('#ff8c1a')}<rect x="6" y="8" width="28" height="2" fill="#e67300"/>`,
@@ -64,7 +68,7 @@ export const JOBS: readonly Job[] = [
       .join(''),
   },
   {
-    name: 'маляр',
+    name: { en: 'painter', uk: 'маляр' },
     emoji: '🖌️',
     prop: '🖼️',
     hat: '<ellipse cx="19" cy="7" rx="12" ry="4" fill="#8e2f4f"/><rect x="19" y="1" width="1.5" height="3" fill="#8e2f4f"/>',
@@ -75,7 +79,7 @@ export const JOBS: readonly Job[] = [
       '<rect x="55" y="12" width="20" height="28" fill="#f4f1ea" stroke="#b8b2a7"/><rect x="56" y="13" width="18" height="0" fill="#3fa7ff"><animate attributeName="height" values="0;26;26" keyTimes="0;0.9;1" dur="3s" repeatCount="indefinite"/></rect>',
   },
   {
-    name: 'программист',
+    name: { en: 'programmer', uk: 'програміст' },
     emoji: '⌨️',
     prop: '💻',
     hat: `<g fill="none" stroke="#4a5568" stroke-width="1.2"><rect x="10.5" y="11.5" width="8" height="8" rx="2"/><rect x="21.5" y="11.5" width="8" height="8" rx="2"/></g>`,
@@ -85,7 +89,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="50" y="20" width="20" height="13" rx="1" fill="#2d3748"/><g fill="#7ee787"><rect x="52" y="23" width="9" height="1.2">${blink('1;0.35;1', '0.6s')}</rect><rect x="52" y="26" width="14" height="1.2">${blink('0.35;1;0.35', '0.9s')}</rect><rect x="52" y="29" width="6" height="1.2">${blink('1;1;0.35;1', '0.5s')}</rect></g><rect x="45" y="33" width="29" height="2.5" rx="1" fill="#a0aec0"/><rect x="44" y="35.5" width="32" height="4.5" fill="#8b5a2b"/>`,
   },
   {
-    name: 'повар',
+    name: { en: 'cook', uk: 'кухар' },
     emoji: '🍳',
     prop: '🔥',
     hat: '<g fill="#fff" stroke="#c9c9c9" stroke-width="0.6"><circle cx="14" cy="3" r="4"/><circle cx="26" cy="3" r="4"/><circle cx="20" cy="1" r="5"/><rect x="12" y="3" width="16" height="6"/></g>',
@@ -95,7 +99,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="50" y="29" width="22" height="11" fill="#6b7280"/><rect x="50" y="29" width="22" height="2" fill="#374151"/><path d="M57 29 q2 -4 4 0 q2 -3 3 0Z" fill="#ff7a1a">${blink('1;0.75;1', '0.3s')}</path>`,
   },
   {
-    name: 'лесоруб',
+    name: { en: 'lumberjack', uk: 'лісоруб' },
     emoji: '🪓',
     prop: '🌲',
     hat: `${dome('#c0392b')}<circle cx="20" cy="2" r="2.5" fill="#fff"/>`,
@@ -105,7 +109,7 @@ export const JOBS: readonly Job[] = [
     target: `<circle cx="62" cy="10" r="10" fill="#3f9b4b"/><circle cx="70" cy="15" r="7" fill="#4caf50"/><rect x="58" y="14" width="7" height="26" fill="#8b5a2b"/><g fill="#d9a066" opacity="0">${flash('0.45s')}<rect x="52" y="20" width="2" height="1.5"/><rect x="54" y="16" width="2" height="1.5"/></g>`,
   },
   {
-    name: 'садовник',
+    name: { en: 'gardener', uk: 'садівник' },
     emoji: '💧',
     prop: '🌷',
     hat: '<ellipse cx="20" cy="8" rx="17" ry="2.5" fill="#e2c275"/><path d="M12 8 Q20 -3 28 8Z" fill="#d4b062"/>',
@@ -115,7 +119,7 @@ export const JOBS: readonly Job[] = [
     target: `<g fill="#5aa9e6"><circle cx="60" cy="22" r="1"><animate attributeName="cy" values="20;36" dur="0.35s" repeatCount="indefinite"/></circle><circle cx="63" cy="26" r="1"><animate attributeName="cy" values="20;36" dur="0.35s" begin="0.17s" repeatCount="indefinite"/></circle></g><rect x="61" y="30" width="2" height="10" fill="#4caf50"/><path d="M62 35 q5 -3 6 1" fill="#4caf50"/><circle cx="62" cy="29" r="3" fill="#e91e63"><animate attributeName="r" values="1.5;4.5;1.5" dur="2.4s" repeatCount="indefinite"/></circle>`,
   },
   {
-    name: 'кузнец',
+    name: { en: 'blacksmith', uk: 'коваль' },
     emoji: '⚒️',
     prop: '🔥',
     hat: '<rect x="6" y="8" width="28" height="3.5" fill="#333"/><path d="M6 9 l-4 -2 l1 5Z" fill="#333"/>',
@@ -125,7 +129,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M50 29 H74 L69 34 H65 V37 H71 V40 H53 V37 H59 V34 H55Z" fill="#555"/><rect x="54" y="27" width="13" height="2" fill="#ff7a1a"/>${sparks(60, 22, '0.34s')}`,
   },
   {
-    name: 'рыбак',
+    name: { en: 'fisher', uk: 'рибалка' },
     emoji: '🎣',
     prop: '🐟',
     hat: `${dome('#5f8d4e')}<rect x="5" y="8" width="30" height="2" fill="#4b7340"/>`,
@@ -135,7 +139,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M60 9 L64 34" stroke="#999" stroke-width="0.5"/><circle cx="64" cy="34" r="1.6" fill="#e53935"><animate attributeName="cy" values="33.5;35;33.5" dur="0.9s" repeatCount="indefinite"/></circle><rect x="46" y="35" width="36" height="5" fill="#4aa3df" opacity="0.75"/><path d="M0 0 q4 -3 8 0 q-4 3 -8 0 M8 0 l3 -2 v4Z" fill="#ffb74d"><animateMotion path="M48 44 Q60 14 76 44" dur="1.8s" repeatCount="indefinite"/></path>`,
   },
   {
-    name: 'учёный',
+    name: { en: 'scientist', uk: 'науковець' },
     emoji: '🧪',
     prop: '⚗️',
     hat: `<g fill="#bdeff5" stroke="#26a5b5" stroke-width="1.4"><rect x="10.5" y="11.5" width="8" height="8" rx="3"/><rect x="21.5" y="11.5" width="8" height="8" rx="3"/></g><rect x="6" y="14" width="28" height="1.5" fill="#26a5b5" opacity="0.6"/>`,
@@ -150,7 +154,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>`,
   },
   {
-    name: 'доктор',
+    name: { en: 'doctor', uk: 'лікар' },
     emoji: '💉',
     prop: '🐛',
     hat: '<rect x="11" y="2" width="18" height="7" rx="2" fill="#fff" stroke="#c9c9c9" stroke-width="0.6"/><path d="M19 3.5 h2 v1.5 h1.5 v2 h-1.5 v1.5 h-2 v-1.5 h-1.5 v-2 h1.5Z" fill="#e53935"/>',
@@ -160,7 +164,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="52" y="35" width="24" height="5" fill="#cfd8dc"/><ellipse cx="65" cy="31" rx="8" ry="5" fill="#6ab04c"/><circle cx="60" cy="30" r="1" fill="${D}"/><path d="M63 27 l6 8" stroke="#fff" stroke-width="2"/><path d="M70 14 h3 v3 h3 v3 h-3 v3 h-3 v-3 h-3 v-3 h3Z" fill="#e53935">${blink('1;0.55;1', '0.7s')}</path>`,
   },
   {
-    name: 'пожарный',
+    name: { en: 'firefighter', uk: 'пожежник' },
     emoji: '💦',
     prop: '🔥',
     hat: `${dome('#d32f2f')}<rect x="5" y="8" width="30" height="2" fill="#b71c1c"/><rect x="18" y="2" width="4" height="4" fill="#ffd54a"/>`,
@@ -170,7 +174,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M52 20 Q62 12 70 30" stroke="#4aa3df" stroke-width="2.2" fill="none" stroke-dasharray="3 2"><animate attributeName="stroke-dashoffset" values="10;0" dur="0.25s" repeatCount="indefinite"/></path><path d="M68 40 Q61 32 67 23 Q70 30 73 26 Q80 34 75 40Z" fill="#ff6b1a">${blink('1;0.8;1', '0.25s')}</path><path d="M70 40 Q67 35 70 31 Q74 35 72 40Z" fill="#ffd54a"/>`,
   },
   {
-    name: 'астроном',
+    name: { en: 'astronomer', uk: 'астроном' },
     emoji: '🔭',
     prop: '⭐',
     hat: '<path d="M10 9 L24 -8 L30 9Z" fill="#3949ab"/><circle cx="24" cy="-8" r="2" fill="#ffd54a"/>',
@@ -190,7 +194,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>`,
   },
   {
-    name: 'музыкант',
+    name: { en: 'musician', uk: 'музикант' },
     emoji: '🎸',
     prop: '🎶',
     hat: '<path d="M6 15 Q20 -6 34 15" stroke="#333" stroke-width="2" fill="none"/><rect x="3" y="12" width="4" height="8" rx="1.5" fill="#333"/><rect x="33" y="12" width="4" height="8" rx="1.5" fill="#333"/>',
@@ -205,7 +209,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>`,
   },
   {
-    name: 'детектив',
+    name: { en: 'detective', uk: 'детектив' },
     emoji: '🔍',
     prop: '👣',
     hat: '<ellipse cx="20" cy="8" rx="16" ry="2.2" fill="#6d4c41"/><path d="M11 8 Q12 -1 20 1 Q28 -1 29 8Z" fill="#795548"/><rect x="11" y="5.5" width="18" height="2" fill="#3e2723"/>',
@@ -215,7 +219,7 @@ export const JOBS: readonly Job[] = [
     target: `<g fill="#8d6e63"><ellipse cx="54" cy="38" rx="3" ry="1.5"/><ellipse cx="62" cy="36" rx="3" ry="1.5"/><ellipse cx="70" cy="38" rx="3" ry="1.5"/></g><text x="66" y="24" font-size="12" fill="#e53935">?${blink('1;0.45;1', '0.8s')}</text>`,
   },
   {
-    name: 'пекарь',
+    name: { en: 'baker', uk: 'пекар' },
     emoji: '🥖',
     prop: '🍞',
     hat: '<ellipse cx="22" cy="6" rx="13" ry="4.5" fill="#fff" stroke="#d0d0d0" stroke-width="0.6"/><rect x="9" y="7" width="22" height="2.5" fill="#eee"/>',
@@ -225,7 +229,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="48" y="34" width="30" height="6" fill="#8b5a2b"/><ellipse cx="63" cy="32" rx="8" ry="2.5" fill="#f3d9a4"><animate attributeName="rx" values="7;11;7" dur="0.5s" repeatCount="indefinite"/></ellipse><path d="M68 22 q4 -6 9 0 v3 h-9Z" fill="#c68642"/><g stroke="#ddd" stroke-width="0.8" fill="none"><path d="M70 19 q1 -2 0 -4">${blink('1;0.2;1', '1s')}</path><path d="M74 19 q1 -2 0 -4">${blink('0.2;1;0.2', '1s')}</path></g><g fill="#fff" opacity="0">${flash('0.5s')}<circle cx="54" cy="29" r="1.5"/><circle cx="72" cy="29" r="1.2"/></g>`,
   },
   {
-    name: 'почтальон',
+    name: { en: 'mail carrier', uk: 'листоноша' },
     emoji: '✉️',
     prop: '📬',
     hat: '<rect x="9" y="3" width="22" height="6" rx="2" fill="#1e3a8a"/><rect x="18" y="4" width="4" height="2.5" fill="#ffd54a"/><path d="M22 9 h12 l-2 2 h-10Z" fill="#111827"/>',
@@ -235,7 +239,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="63" y="26" width="2.5" height="14" fill="#555"/><path d="M56 27 v-9 q8 -6 16 0 v9Z" fill="#1e88e5"/><rect x="59" y="21" width="9" height="1.5" fill="#0d47a1"/><g><animateTransform attributeName="transform" type="rotate" values="0 73 22;-70 73 22;0 73 22" dur="0.8s" repeatCount="indefinite"/><rect x="72" y="14" width="1.5" height="8" fill="#e53935"/><rect x="73.5" y="14" width="4" height="3" fill="#e53935"/></g><rect x="-3" y="-2" width="6" height="4" fill="#fff" stroke="#9aa4ad" stroke-width="0.5"><animateMotion path="M46 22 Q54 8 63 21" dur="0.8s" repeatCount="indefinite"/></rect>`,
   },
   {
-    name: 'фотограф',
+    name: { en: 'photographer', uk: 'фотограф' },
     emoji: '📷',
     prop: '🌼',
     hat: '<path d="M8 9 Q12 1 24 2 Q33 3 34 9Z" fill="#6b7280"/><path d="M26 7 h12 l-3 2 h-9Z" fill="#4b5563"/>',
@@ -245,7 +249,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M63 40 l-2 -8 h8 l-2 8Z" fill="#26a69a"/><rect x="64.5" y="23" width="1" height="9" fill="#4caf50"/><g fill="#fff"><circle cx="65" cy="18" r="2.2"/><circle cx="65" cy="24" r="2.2"/><circle cx="62" cy="21" r="2.2"/><circle cx="68" cy="21" r="2.2"/></g><circle cx="65" cy="21" r="2" fill="#ffd54a"/><g opacity="0">${flash('1.2s')}<circle cx="52" cy="14" r="5" fill="#fffde7"/><path d="M52 5 v-3 M61 14 h3 M52 23 v3 M45 8 l-2 -2" stroke="#fff59d" stroke-width="1.2"/></g>`,
   },
   {
-    name: 'скульптор',
+    name: { en: 'sculptor', uk: 'скульптор' },
     emoji: '🗿',
     prop: '🏛️',
     hat: '<path d="M7 9 Q20 1 33 9 L33 10 H7Z" fill="#c62828"/><path d="M33 9 l4 3 l-1 -5Z" fill="#c62828"/>',
@@ -255,7 +259,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="56" y="34" width="18" height="6" fill="#9e9e9e"/><path d="M58 34 q0 -8 7 -10 q7 2 7 10Z" fill="#bdbdbd"/><circle cx="65" cy="19" r="6" fill="#cfcfcf"/><rect x="62" y="18" width="1.5" height="1.5" fill="#888"/><rect x="66.5" y="18" width="1.5" height="1.5" fill="#888"/><rect x="63" y="21.5" width="4" height="0.8" fill="#888"/><g fill="#e0e0e0" opacity="0">${flash('0.3s')}<rect x="56" y="16" width="1.5" height="1.5"/><rect x="53" y="20" width="1.2" height="1.2"/><rect x="55" y="24" width="1" height="1"/></g>`,
   },
   {
-    name: 'фермер',
+    name: { en: 'farmer', uk: 'фермер' },
     emoji: '🌾',
     prop: '🐔',
     hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#2e7d32"/><rect x="14" y="3" width="12" height="4" fill="#fff"/><path d="M31 8 h7 l-1 2 h-6Z" fill="#1b5e20"/>',
@@ -265,7 +269,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M50 40 Q52 22 64 20 Q76 22 78 40Z" fill="#e8c547"/><path d="M54 32 l4 -3 M66 28 l5 2 M60 36 l6 -2 M70 34 l3 -3" stroke="#c9a227" stroke-width="0.8"/><g stroke="#e8c547" stroke-width="1" opacity="0">${flash('0.6s')}<path d="M52 17 l3 -2"/><path d="M47 21 l2 -3"/><path d="M57 13 l3 1"/></g>`,
   },
   {
-    name: 'космонавт',
+    name: { en: 'astronaut', uk: 'космонавт' },
     emoji: '🚀',
     prop: '🌕',
     hat: '<circle cx="20" cy="16" r="18" fill="#bde0fe" fill-opacity="0.25" stroke="#e0e0e0" stroke-width="1.5"/><rect x="15" y="-3" width="10" height="2" fill="#e0e0e0"/>',
@@ -275,7 +279,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M64 4 q6 6 6 18 v8 h-12 v-8 q0 -12 6 -18Z" fill="#eceff1" stroke="#90a4ae" stroke-width="0.6"/><circle cx="64" cy="16" r="2.5" fill="#4fc3f7" stroke="#90a4ae" stroke-width="0.6"/><path d="M58 22 l-4 9 h4Z M70 22 l4 9 h-4Z" fill="#e53935"/><path d="M60 30 h8 l-4 9Z" fill="#ff9800">${blink('1;0.4;1', '0.15s')}</path><path d="M62 30 h4 l-2 5Z" fill="#ffd54a"/><g fill="#fff"><circle cx="51" cy="8" r="0.8">${blink('1;0.2;1', '1.3s')}</circle><circle cx="77" cy="12" r="0.8">${blink('0.2;1;0.2', '1.1s')}</circle></g>`,
   },
   {
-    name: 'пират',
+    name: { en: 'pirate', uk: 'пірат' },
     emoji: '🏴‍☠️',
     prop: '💰',
     hat: '<path d="M3 8 Q20 -7 37 8 Q20 3 3 8Z" fill="#212121"/><circle cx="20" cy="3" r="1.8" fill="#fff"/><rect x="12" y="12" width="6" height="6" rx="1" fill="#111"/><path d="M6 11 L34 15" stroke="#111" stroke-width="0.8"/>',
@@ -290,7 +294,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g><rect x="54" y="28" width="20" height="12" fill="#8d5524"/><path d="M54 28 q10 -7 20 0Z" fill="#a0632d"/><rect x="54" y="31" width="20" height="1.5" fill="#ffd54a"/><rect x="62" y="30" width="4" height="4" fill="#ffd54a"/>`,
   },
   {
-    name: 'фокусник',
+    name: { en: 'magician', uk: 'фокусник' },
     emoji: '🎩',
     prop: '🐇',
     hat: '<rect x="12" y="-6" width="16" height="13" fill="#212121"/><rect x="8" y="6" width="24" height="2.5" fill="#212121"/><rect x="12" y="3" width="16" height="2" fill="#c62828"/>',
@@ -300,7 +304,7 @@ export const JOBS: readonly Job[] = [
     target: `<g><animateTransform attributeName="transform" type="translate" values="0,9;0,0;0,0;0,9" keyTimes="0;0.25;0.75;1" dur="1.8s" repeatCount="indefinite"/><ellipse cx="65" cy="23" rx="4" ry="3.5" fill="#fff"/><rect x="62" y="13" width="2" height="8" rx="1" fill="#fff"/><rect x="66" y="13" width="2" height="8" rx="1" fill="#fff"/><circle cx="63.5" cy="22.5" r="0.6" fill="#111"/><circle cx="66.5" cy="22.5" r="0.6" fill="#111"/></g><rect x="58" y="27" width="14" height="9" fill="#212121"/><rect x="56" y="26" width="18" height="2" fill="#212121"/><rect x="52" y="36" width="26" height="4" fill="#6a1b9a"/><g fill="#ffd54a">${sparks(56, 14, '0.9s')}</g>`,
   },
   {
-    name: 'диджей',
+    name: { en: 'DJ', uk: 'діджей' },
     emoji: '🎧',
     prop: '💿',
     hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#e53935"/><path d="M9 8 h-6 l1 2 h5Z" fill="#b71c1c"/>',
@@ -322,7 +326,7 @@ export const JOBS: readonly Job[] = [
       .join('')}`,
   },
   {
-    name: 'сантехник',
+    name: { en: 'plumber', uk: 'сантехнік' },
     emoji: '🔧',
     prop: '🚰',
     hat: '<path d="M9 9 Q10 1 20 1 Q30 1 31 9Z" fill="#1565c0"/><path d="M31 8 h7 l-1 2 h-6Z" fill="#0d47a1"/><rect x="15" y="20" width="10" height="2.5" rx="1" fill="#4e342e"/>',
@@ -337,7 +341,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g><ellipse cx="61" cy="39" rx="6" ry="1.2" fill="#4aa3df" opacity="0.7"><animate attributeName="rx" values="4;7;4" dur="2s" repeatCount="indefinite"/></ellipse>`,
   },
   {
-    name: 'электрик',
+    name: { en: 'electrician', uk: 'електрик' },
     emoji: '⚡',
     prop: '💡',
     hat: `${dome('#1e88e5')}<path d="M21 0 l-3 4 h2.5 l-2 4 l4.5 -5 h-2.5 l1.5 -3Z" fill="#ffd54a"/>`,
@@ -347,7 +351,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M68 0 v9" stroke="#333" stroke-width="0.8"/><rect x="66" y="9" width="4" height="3" fill="#78909c"/><circle cx="68" cy="16" r="5" fill="#fff59d">${blink('0.25;1;1;0.25', '1.2s')}</circle><rect x="50" y="22" width="13" height="18" fill="#b0bec5" stroke="#78909c" stroke-width="0.6"/><rect x="53" y="26" width="2" height="4" fill="#e53935"/><rect x="57" y="26" width="2" height="4" fill="#43a047"/><path d="M63 31 q4 0 5 -15" stroke="#333" stroke-width="0.8" fill="none"/>${sparks(52, 22, '0.25s')}`,
   },
   {
-    name: 'учитель',
+    name: { en: 'teacher', uk: 'вчитель' },
     emoji: '🎓',
     prop: '📚',
     hat: '<path d="M4 4 L20 -1 L36 4 L20 9Z" fill="#212121"/><rect x="13" y="5" width="14" height="4" fill="#212121"/><path d="M33 4 v6" stroke="#ffd54a" stroke-width="1"/><circle cx="33" cy="10.5" r="1" fill="#ffd54a"/>',
@@ -357,7 +361,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M54 28 L52 40 M74 28 L76 40" stroke="#8b5a2b" stroke-width="1.5"/><rect x="50" y="8" width="28" height="20" fill="#2e7d32" stroke="#8b5a2b" stroke-width="1.5"/><text x="53" y="17" font-size="6" fill="#fff">2+2</text><text x="64" y="17" font-size="6" fill="#fff">=4<animate attributeName="opacity" values="0;1;1" keyTimes="0;0.4;1" calcMode="discrete" dur="2s" repeatCount="indefinite"/></text><path d="M53 22 h12" stroke="#fff" stroke-width="0.8"><animate attributeName="opacity" values="0;0;1" keyTimes="0;0.7;1" calcMode="discrete" dur="2s" repeatCount="indefinite"/></path>`,
   },
   {
-    name: 'теннисист',
+    name: { en: 'tennis player', uk: 'тенісист' },
     emoji: '🎾',
     prop: '🏆',
     hat: '<rect x="6" y="8.5" width="28" height="2.5" fill="#fff"/><rect x="6" y="8.5" width="28" height="0.8" fill="#e53935"/>',
@@ -367,7 +371,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="44" y="39" width="40" height="1" fill="#fff"/><rect x="66" y="27" width="1.5" height="13" fill="#555"/><path d="M67.5 28 h9 M67.5 31 h9 M67.5 34 h9 M67.5 37 h9 M70 28 v12 M73 28 v12 M76 28 v12" stroke="#bbb" stroke-width="0.4"/><circle r="2" fill="#c6ff00"><animateMotion path="M50 20 Q62 2 78 38 Q81 30 84 33" dur="0.8s" repeatCount="indefinite"/></circle>`,
   },
   {
-    name: 'парикмахер',
+    name: { en: 'hairdresser', uk: 'перукар' },
     emoji: '✂️',
     prop: '💈',
     hat: '<path d="M7 9 Q8 2 20 2 Q32 2 33 9 Q26 5 20 6 Q12 5 7 9Z" fill="#3e2723"/><rect x="25" y="-1" width="8" height="2" fill="#ec407a"/><path d="M26 1 v1.5 M28 1 v1.5 M30 1 v1.5 M32 1 v1.5" stroke="#ec407a" stroke-width="0.6"/>',
@@ -382,7 +386,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>`,
   },
   {
-    name: 'археолог',
+    name: { en: 'archaeologist', uk: 'археолог' },
     emoji: '🦴',
     prop: '🦕',
     hat: '<ellipse cx="20" cy="8.5" rx="16" ry="2.2" fill="#c8a165"/><path d="M10 8.5 Q20 -6 30 8.5Z" fill="#d7b377"/><rect x="10" y="6.5" width="20" height="1.5" fill="#8d6e63"/>',
@@ -392,7 +396,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M46 40 Q62 26 82 40Z" fill="#e0c18a"/><g fill="#fafafa" stroke="#bdbdbd" stroke-width="0.4"><rect x="57" y="33" width="12" height="2.5" rx="1"/><circle cx="57" cy="33" r="1.6"/><circle cx="57" cy="35.5" r="1.6"/><circle cx="69" cy="33" r="1.6"/><circle cx="69" cy="35.5" r="1.6"/></g><g fill="#e0c18a" opacity="0">${flash('0.35s')}<circle cx="52" cy="30" r="1.5"/><circle cx="55" cy="26" r="1"/><circle cx="50" cy="27" r="1"/></g>`,
   },
   {
-    name: 'дворник',
+    name: { en: 'street sweeper', uk: 'двірник' },
     emoji: '🧹',
     prop: '🍂',
     hat: '<path d="M9 9 Q10 0 20 0 Q30 0 31 9Z" fill="#e65100"/><rect x="9" y="7" width="22" height="2.5" fill="#bf360c"/><circle cx="20" cy="0" r="2.2" fill="#ffcc80"/><rect x="6" y="22" width="28" height="2" fill="#cddc39"/>',
@@ -407,7 +411,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g><ellipse rx="2" ry="1" fill="#c0392b"><animateMotion path="M74 2 Q66 12 74 20 Q80 28 72 38" dur="2.4s" repeatCount="indefinite"/></ellipse><g fill="#c8b8a0" opacity="0">${flash('0.6s')}<circle cx="47" cy="37" r="1.2"/><circle cx="50" cy="35" r="0.9"/></g>`,
   },
   {
-    name: 'пчеловод',
+    name: { en: 'beekeeper', uk: 'бджоляр' },
     emoji: '🐝',
     prop: '🍯',
     hat: '<ellipse cx="20" cy="7" rx="16" ry="2.5" fill="#f5f0dc"/><path d="M12 7 Q20 -3 28 7Z" fill="#ece4c6"/><path d="M5 8 L7 23 H33 L35 8Z" fill="#fff" fill-opacity="0.35" stroke="#c9c9c9" stroke-width="0.4"/>',
@@ -422,17 +426,17 @@ export const JOBS: readonly Job[] = [
       .join('')}`,
   },
   {
-    name: 'ковбой',
+    name: { en: 'cowboy', uk: 'ковбой' },
     emoji: '🤠',
     prop: '🐄',
     hat: '<path d="M1 6 Q6 10 20 8 Q34 10 39 6 Q35 12 20 12 Q5 12 1 6Z" fill="#8d6e63"/><path d="M11 9 Q11 -1 16 1 Q20 3 24 1 Q29 -1 29 9Z" fill="#a1887f"/><rect x="11" y="6" width="18" height="1.5" fill="#5d4037"/>',
     tool: '<rect x="-0.6" y="-9" width="1.2" height="9" fill="#c8a165"/><ellipse cx="0" cy="-14" rx="6" ry="4.5" fill="none" stroke="#c8a165" stroke-width="1.3"/>',
     swing: '0;360',
     dur: '0.6s',
-    target: `<g fill="#fff" stroke="#555" stroke-width="0.4"><rect x="60" y="33" width="2" height="7"/><rect x="64" y="33" width="2" height="7"/><rect x="71" y="33" width="2" height="7"/><rect x="75" y="33" width="2" height="7"/><rect x="58" y="24" width="20" height="10" rx="2"/></g><ellipse cx="64" cy="27" rx="3" ry="2" fill="#333"/><ellipse cx="72" cy="31" rx="2.5" ry="1.5" fill="#333"/><g>${rot('0 78 25;25 78 25;0 78 25', '1.2s')}<path d="M78 25 q3 5 1 10" stroke="#555" stroke-width="0.8" fill="none"/></g><path d="M52 20 l-2 -3 M58 20 l2 -3" stroke="#c8a165" stroke-width="1.2"/><rect x="51" y="19" width="8" height="8" rx="1.5" fill="#fff" stroke="#555" stroke-width="0.4"/><rect x="51" y="24" width="6" height="3.5" rx="1" fill="#f8bbd0"/><circle cx="54" cy="21.5" r="0.8" fill="#111"/><text x="63" y="21" font-size="5" fill="#8d6e63">Му!${blink('1;0;0;1', '2s')}</text>`,
+    target: `<g fill="#fff" stroke="#555" stroke-width="0.4"><rect x="60" y="33" width="2" height="7"/><rect x="64" y="33" width="2" height="7"/><rect x="71" y="33" width="2" height="7"/><rect x="75" y="33" width="2" height="7"/><rect x="58" y="24" width="20" height="10" rx="2"/></g><ellipse cx="64" cy="27" rx="3" ry="2" fill="#333"/><ellipse cx="72" cy="31" rx="2.5" ry="1.5" fill="#333"/><g>${rot('0 78 25;25 78 25;0 78 25', '1.2s')}<path d="M78 25 q3 5 1 10" stroke="#555" stroke-width="0.8" fill="none"/></g><path d="M52 20 l-2 -3 M58 20 l2 -3" stroke="#c8a165" stroke-width="1.2"/><rect x="51" y="19" width="8" height="8" rx="1.5" fill="#fff" stroke="#555" stroke-width="0.4"/><rect x="51" y="24" width="6" height="3.5" rx="1" fill="#f8bbd0"/><circle cx="54" cy="21.5" r="0.8" fill="#111"/><text x="63" y="21" font-size="5" fill="#8d6e63">Moo!${blink('1;0;0;1', '2s')}</text>`,
   },
   {
-    name: 'рыцарь',
+    name: { en: 'knight', uk: 'лицар' },
     emoji: '⚔️',
     prop: '🐉',
     hat: '<path d="M7 11 Q7 -2 20 -2 Q33 -2 33 11Z" fill="#b0bec5" stroke="#78909c" stroke-width="0.6"/><rect x="7" y="9" width="26" height="2" fill="#78909c"/><path d="M20 -2 Q24 -10 31 -7 Q26 -6 22 -1Z" fill="#e53935"/>',
@@ -447,7 +451,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>${sparks(55, 16, '0.45s')}`,
   },
   {
-    name: 'лучник',
+    name: { en: 'archer', uk: 'лучник' },
     emoji: '🏹',
     prop: '🎯',
     hat: '<path d="M6 9 Q13 -2 34 6 L34 9Z" fill="#2e7d32"/><path d="M26 5 Q33 -6 38 -4 Q32 0 28 6Z" fill="#e53935"/>',
@@ -457,7 +461,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M68 40 L72 30 L76 40" stroke="#8b5a2b" stroke-width="1.2" fill="none"/><circle cx="72" cy="24" r="8" fill="#fff" stroke="#999" stroke-width="0.4"/><circle cx="72" cy="24" r="6" fill="#e53935"/><circle cx="72" cy="24" r="4" fill="#fff"/><circle cx="72" cy="24" r="2" fill="#e53935"/><g stroke="#8b5a2b" stroke-width="0.8"><path d="M71 21 l-6 -2"/><path d="M73 26 l-6 2"/></g><g><animateMotion path="M46 25 L68 24" dur="0.7s" repeatCount="indefinite"/><rect x="-6" y="-0.4" width="8" height="0.8" fill="#8b5a2b"/><path d="M2 -1.5 L4.5 0 L2 1.5Z" fill="#9aa4ad"/><path d="M-6 0 l-2 -1.5 M-6 0 l-2 1.5" stroke="#e53935" stroke-width="0.8"/></g>`,
   },
   {
-    name: 'бармен',
+    name: { en: 'bartender', uk: 'бармен' },
     emoji: '🍸',
     prop: '🍋',
     hat: '<path d="M7 9 Q8 3 20 3 Q32 3 33 9 Q24 6 7 9Z" fill="#212121"/><path d="M16 21.5 l4 1.5 l4 -1.5 v4 l-4 -1.5 l-4 1.5Z" fill="#c62828"/>',
@@ -467,7 +471,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="48" y="33" width="32" height="7" fill="#6d4c41"/><rect x="48" y="33" width="32" height="1.5" fill="#8d6e63"/><path d="M64 27 L64 27 L64 27Z" fill="#ec407a"><animate attributeName="d" values="M64 27 L64 27 L64 27Z;M58.6 20.4 L69.4 20.4 L64 27Z;M58.6 20.4 L69.4 20.4 L64 27Z" keyTimes="0;0.7;1" dur="2.4s" repeatCount="indefinite"/></path><path d="M58 20 h12 l-6 7Z" fill="none" stroke="#b3e5fc" stroke-width="0.8"/><rect x="63.5" y="27" width="1" height="5" fill="#b3e5fc"/><rect x="61" y="32" width="6" height="1" fill="#b3e5fc"/><g opacity="0"><animate attributeName="opacity" values="0;1" keyTimes="0;0.75" calcMode="discrete" dur="2.4s" repeatCount="indefinite"/><path d="M68 20 q1 -4 3 -6" stroke="#4caf50" stroke-width="0.6" fill="none"/><circle cx="68" cy="19.5" r="1.6" fill="#e53935"/></g><path d="M75 33 v-10 h4 v10Z M76 23 v-4 h2 v4Z" fill="#2e7d32" opacity="0.8"/>`,
   },
   {
-    name: 'регулировщик',
+    name: { en: 'traffic officer', uk: 'регулювальник' },
     emoji: '🚦',
     prop: '🚗',
     hat: '<path d="M9 7 Q10 0 20 0 Q30 0 31 7Z" fill="#1a237e"/><rect x="9" y="6" width="22" height="2" fill="#fff"/><path d="M14 8 h14 l-2 2.5 h-10Z" fill="#111"/><circle cx="20" cy="3" r="1.5" fill="#ffd54a"/>',
@@ -486,7 +490,7 @@ export const JOBS: readonly Job[] = [
       .join('')}<rect x="44" y="39" width="40" height="1" fill="#9e9e9e"/><g>${move('52,38;52,38;74,38', '3s', 'keyTimes="0;0.5;1" repeatCount="indefinite"')}<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.85;1" dur="3s" repeatCount="indefinite"/><rect x="-8" y="-5" width="16" height="5" rx="1.5" fill="#1e88e5"/><rect x="-5" y="-8.5" width="9" height="4" rx="1" fill="#90caf9"/><circle cx="-4.5" cy="0" r="1.8" fill="#222"/><circle cx="4.5" cy="0" r="1.8" fill="#222"/></g>`,
   },
   {
-    name: 'водолаз',
+    name: { en: 'diver', uk: 'водолаз' },
     emoji: '🤿',
     prop: '🐠',
     hat: '<rect x="9" y="11" width="22" height="9" rx="3" fill="#4fc3f7" fill-opacity="0.35" stroke="#0277bd" stroke-width="1.4"/><rect x="6" y="13" width="3" height="2.5" fill="#0277bd"/><path d="M33 20 V3 h3" stroke="#ff7043" stroke-width="2" fill="none"/>',
@@ -501,7 +505,7 @@ export const JOBS: readonly Job[] = [
       .join('')}</g>`,
   },
   {
-    name: 'альпинист',
+    name: { en: 'climber', uk: 'альпініст' },
     emoji: '🧗',
     prop: '🏔️',
     hat: `${dome('#ff5722')}<rect x="8" y="7" width="24" height="2" fill="#bf360c"/><g fill="#90caf9" stroke="#37474f" stroke-width="0.8"><circle cx="15" cy="4" r="2.2"/><circle cx="25" cy="4" r="2.2"/></g>`,
@@ -511,7 +515,7 @@ export const JOBS: readonly Job[] = [
     target: `<path d="M50 40 L65 8 L82 40Z" fill="#78909c"/><path d="M59.4 20 L65 8 L70.6 20 L67.5 18 L65 21 L62.5 18Z" fill="#fff"/><path d="M58 26 l4 -3 M70 30 l5 4" stroke="#607d8b" stroke-width="0.8"/><rect x="64.5" y="-1" width="1" height="10" fill="#555"/><path d="M65.5 -1 h7 l-2 2 l2 2 h-7Z" fill="#e53935">${rot('0 65.5 1;-10 65.5 1;0 65.5 1', '0.8s')}</path><g fill="#fff" opacity="0">${flash('0.5s')}<rect x="54" y="24" width="1.5" height="1.5"/><rect x="51" y="21" width="1.2" height="1.2"/><rect x="56" y="20" width="1" height="1"/></g>`,
   },
   {
-    name: 'часовщик',
+    name: { en: 'watchmaker', uk: 'годинникар' },
     emoji: '⌚',
     prop: '🕰️',
     hat: '<rect x="6" y="6" width="28" height="2" fill="#5d4037"/><circle cx="25.5" cy="16" r="4.5" fill="#bde0fe" fill-opacity="0.5" stroke="#212121" stroke-width="1.5"/><rect x="29" y="14.5" width="5" height="3" fill="#212121"/>',
@@ -529,7 +533,7 @@ export const JOBS: readonly Job[] = [
       .join('')}`,
   },
   {
-    name: 'портной',
+    name: { en: 'tailor', uk: 'кравець' },
     emoji: '🧵',
     prop: '👔',
     hat: '<ellipse cx="20" cy="7" rx="6" ry="3" fill="#e53935"/><path d="M17 6 l-1 -3 M20 5 v-3.5 M23 6 l1 -3" stroke="#9aa4ad" stroke-width="0.6"/><g fill="#ffd54a"><circle cx="16" cy="3" r="0.8"/><circle cx="20" cy="1.5" r="0.8"/><circle cx="24" cy="3" r="0.8"/></g><path d="M8 20 Q20 27 32 20" stroke="#fdd835" stroke-width="1.8" fill="none"/><path d="M8.5 20 v6 M31.5 20 v5" stroke="#fdd835" stroke-width="1.8"/>',
@@ -544,7 +548,7 @@ export const JOBS: readonly Job[] = [
       .join('')}`,
   },
   {
-    name: 'гончар',
+    name: { en: 'potter', uk: 'гончар' },
     emoji: '🏺',
     prop: '🌀',
     hat: '<path d="M7 9 Q8 1 20 2 Q32 1 33 9Z" fill="#a1887f"/><path d="M33 7 l5 2 l-1 3 l-4 -2Z" fill="#a1887f"/><g fill="#8d6e63"><rect x="12" y="21" width="2" height="2"/><rect x="27" y="20" width="2" height="2"/></g>',
@@ -554,7 +558,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="44" y="34" width="24" height="6" fill="#6d4c41"/><ellipse cx="56" cy="33" rx="11" ry="2" fill="#8d6e63"/><rect x="50" y="32" width="1.5" height="2" fill="#5d4037"><animate attributeName="x" values="46;65;46" dur="0.4s" repeatCount="indefinite"/></rect><path d="M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z" fill="#c1693c"><animate attributeName="d" values="M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z;M50 33 Q46 27 54 18 L58 18 Q66 27 62 33Z;M51 33 Q47 25 53 20 L59 20 Q65 25 61 33Z" dur="2s" repeatCount="indefinite"/></path><path d="M52 27 h8" stroke="#a0522d" stroke-width="0.6"/><path d="M74 40 q-3 -6 1 -10 h4 q4 4 1 10Z" fill="#c1693c"/><rect x="74.5" y="28" width="5" height="2" fill="#a0522d"/>`,
   },
   {
-    name: 'жонглёр',
+    name: { en: 'juggler', uk: 'жонглер' },
     emoji: '🤹',
     prop: '🎪',
     hat: '<path d="M8 9 L3 -4 L15 5 L20 -6 L25 5 L37 -4 L32 9Z" fill="#8e24aa"/><path d="M20 -6 L25 5 L20 7 L15 5Z" fill="#fdd835"/><g fill="#fdd835"><circle cx="3" cy="-4" r="1.6"/><circle cx="20" cy="-6" r="1.6"/><circle cx="37" cy="-4" r="1.6"/></g>',
@@ -573,7 +577,7 @@ export const JOBS: readonly Job[] = [
       .join('')}`,
   },
   {
-    name: 'энтомолог',
+    name: { en: 'entomologist', uk: 'ентомолог' },
     emoji: '🦋',
     prop: '🌸',
     hat: '<rect x="7" y="7" width="26" height="2" fill="#43a047"/><path d="M14 8 Q11 0 8 -2 M26 8 Q29 0 32 -2" stroke="#212121" stroke-width="0.8" fill="none"/><circle cx="8" cy="-2" r="1.5" fill="#212121"/><circle cx="32" cy="-2" r="1.5" fill="#212121"/>',
@@ -583,7 +587,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="69" y="30" width="1.5" height="10" fill="#4caf50"/><path d="M70 36 q-5 -3 -6 1 M70 34 q5 -3 6 1" stroke="#4caf50" stroke-width="1" fill="none"/><g fill="#f48fb1"><circle cx="70" cy="27" r="2"/><circle cx="67" cy="29.5" r="2"/><circle cx="73" cy="29.5" r="2"/><circle cx="68" cy="32.5" r="2"/><circle cx="72" cy="32.5" r="2"/></g><circle cx="70" cy="30" r="1.5" fill="#ffd54a"/><g><animateMotion path="M62 14 Q72 2 78 14 Q74 24 66 20 Q56 18 62 14" dur="2.6s" repeatCount="indefinite"/><g><animateTransform attributeName="transform" type="scale" values="1 1;0.25 1;1 1" dur="0.2s" repeatCount="indefinite"/><path d="M0 0 L-3.5 -3 L-3 2Z M0 0 L3.5 -3 L3 2Z" fill="#ff7043"/></g><rect x="-0.4" y="-2" width="0.8" height="4" fill="#333"/></g>`,
   },
   {
-    name: 'боксёр',
+    name: { en: 'boxer', uk: 'боксер' },
     emoji: '🥊',
     prop: '💪',
     hat: '<rect x="6" y="8" width="28" height="3" fill="#e53935"/><path d="M6 9 l-4 3 l1 2 l4 -3Z M6 10 l-2 5 l2 1 l1 -5Z" fill="#e53935"/>',
@@ -593,7 +597,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="77" y="0" width="5" height="2" fill="#555"/><rect x="58" y="0" width="22" height="1.5" fill="#555"/><rect x="58.5" y="1.5" width="1" height="6" fill="#555"/><g><animateTransform attributeName="transform" type="rotate" values="0 59 1;0 59 1;-14 59 1;0 59 1" keyTimes="0;${STRIKE};0.5;1" dur="0.35s" repeatCount="indefinite"/><rect x="53" y="7.5" width="12" height="24" rx="4" fill="#c62828"/><rect x="53" y="12" width="12" height="2" fill="#8e0000"/><rect x="53" y="26" width="12" height="2" fill="#8e0000"/></g><rect x="48" y="39" width="30" height="1" fill="#9e9e9e"/>${sparks(52, 20, '0.35s')}`,
   },
   {
-    name: 'шахматист',
+    name: { en: 'chess player', uk: 'шахіст' },
     emoji: '♟️',
     prop: '👑',
     hat: '<path d="M9 8 Q10 2 20 2 Q30 2 31 8Z" fill="#455a64"/><path d="M28 7 h8 l-2 2 h-6Z" fill="#37474f"/><g fill="none" stroke="#212121" stroke-width="0.9"><circle cx="14.5" cy="16" r="3.5"/><circle cx="25.5" cy="16" r="3.5"/><path d="M18 16 h4"/></g>',
@@ -605,7 +609,7 @@ export const JOBS: readonly Job[] = [
       .join('')}<g fill="#fafafa" stroke="#757575" stroke-width="0.4"><rect x="71" y="29" width="6" height="2"/><path d="M72 29 L73 21 H75 L76 29Z"/><path d="M74 17 v4 M72.5 18.5 h3" stroke-width="0.9"/></g><g>${move('0,0;0,0;4,-6;8,0;8,0', '2.4s', 'keyTimes="0;0.4;0.5;0.6;1" repeatCount="indefinite"')}<g fill="#263238" stroke="#90a4ae" stroke-width="0.4"><rect x="51" y="29" width="5" height="2"/><path d="M52 29 L53 25 H54 L55 29Z"/><circle cx="53.5" cy="24" r="1.6"/></g></g>`,
   },
   {
-    name: 'барабанщик',
+    name: { en: 'drummer', uk: 'барабанщик' },
     emoji: '🥁',
     prop: '🔊',
     hat: '<path d="M8 9 Q9 2 20 2 Q31 2 32 9Z" fill="#1565c0"/><g fill="#fff"><circle cx="15" cy="5" r="0.8"/><circle cx="21" cy="4" r="0.8"/><circle cx="26" cy="6" r="0.8"/></g><path d="M8 8 l-5 1 l1 3Z M8 8 l-3 4 h3Z" fill="#1565c0"/>',
@@ -615,7 +619,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="50" y="30" width="20" height="10" fill="#e53935"/><path d="M50 32 L55 38 L60 32 L65 38 L70 32" stroke="#ffd54a" stroke-width="0.8" fill="none"/><ellipse cx="60" cy="30" rx="10" ry="2" fill="#f5f5f5" stroke="#bbb" stroke-width="0.4"/><rect x="77" y="18" width="1" height="22" fill="#9e9e9e"/><path d="M74 40 l3.5 -4 l3.5 4" stroke="#9e9e9e" stroke-width="0.8" fill="none"/><ellipse cx="77.5" cy="18" rx="6" ry="1.2" fill="#fbc02d">${rot('-8 77.5 18;8 77.5 18;-8 77.5 18', '0.3s')}</ellipse><g stroke="#ffd54a" stroke-width="0.8" fill="none" opacity="0">${flash('0.3s')}<path d="M54 24 q3 -3 6 0"/><path d="M52 21 q5 -5 10 0"/></g>`,
   },
   {
-    name: 'грибник',
+    name: { en: 'mushroom picker', uk: 'грибник' },
     emoji: '🍄',
     prop: '🧺',
     hat: '<path d="M4 9 Q6 -4 20 -4 Q34 -4 36 9Z" fill="#e53935"/><g fill="#fff"><circle cx="12" cy="3" r="1.8"/><circle cx="22" cy="-1" r="1.5"/><circle cx="29" cy="4" r="1.8"/><circle cx="18" cy="5" r="1"/></g>',
@@ -633,7 +637,7 @@ export const JOBS: readonly Job[] = [
       .join('')}<path d="M70 32 h12 l-2 8 h-8Z" fill="#c8a165"/><path d="M72 32 Q76 22 80 32" stroke="#8b5a2b" stroke-width="1" fill="none"/><path d="M71 35 h10 M71.5 37.5 h9" stroke="#a1887f" stroke-width="0.5"/><g><path d="M73 32 Q75 27 77 32Z" fill="#8d6e63"/><path d="M76 32 Q78.5 28 81 32Z" fill="#e53935"/></g>`,
   },
   {
-    name: 'стеклодув',
+    name: { en: 'glassblower', uk: 'склодув' },
     emoji: '🔮',
     prop: '✨',
     hat: '<rect x="6" y="5" width="28" height="3" fill="#5d4037"/><g fill="#ffb74d" fill-opacity="0.75" stroke="#3e2723" stroke-width="1"><rect x="11" y="2.5" width="7" height="5" rx="2"/><rect x="22" y="2.5" width="7" height="5" rx="2"/></g>',
@@ -643,7 +647,7 @@ export const JOBS: readonly Job[] = [
     target: `<rect x="72" y="16" width="12" height="24" fill="#6d4c41"/><rect x="71" y="14" width="14" height="3" fill="#4e342e"/><path d="M74 40 v-10 q4 -5 8 0 v10Z" fill="#ff6f00">${blink('1;0.7;1', '0.4s')}</path><circle cx="65" cy="25" r="3" fill="#ffb300"><animate attributeName="r" values="2.5;6;2.5" dur="3s" repeatCount="indefinite"/><animate attributeName="fill" values="#fff176;#ff7043;#fff176" dur="3s" repeatCount="indefinite"/></circle><circle cx="63" cy="23" r="1" fill="#fff" opacity="0.8"/>`,
   },
   {
-    name: 'мороженщик',
+    name: { en: 'ice cream seller', uk: 'морозивник' },
     emoji: '🍦',
     prop: '🍨',
     hat: '<path d="M9 9 L12 2 H28 L31 9Z" fill="#fff" stroke="#ddd" stroke-width="0.5"/><rect x="11" y="4.5" width="18" height="1.5" fill="#f06292"/>',
@@ -1091,6 +1095,99 @@ const personShot = (from: { x: number; y: number }, hitX: number) => {
 // to one side or the other from shot to shot.
 const miniFeetX = (x: number, n: number, k: number) => x + DESK + 12 + (((n * 7 + k * 5) % 9) - 4)
 
+// Tomatoes, in seconds: each flies for FLIGHT, the next leaves the hand
+// TOSS_GAP after the last, and a splat stays SPLAT, fading at its end.
+const FLIGHT = 0.32
+const TOSS_GAP = 0.22
+const SPLAT = 1.2
+export const tossAt = (k: number) => k * TOSS_GAP
+// When tomato `k` lands: the splat's squelch is played then.
+export const splatAt = (k: number) => tossAt(k) + FLIGHT
+export const tossMs = (tomatoes: number) => Math.round((splatAt(Math.max(1, tomatoes) - 1) + SPLAT) * 1000)
+
+const TOMATO =
+  '<circle r="3.4" fill="#e53935"/><circle cx="-1.2" cy="-1.2" r="0.9" fill="#ff8a80"/>' +
+  '<path d="M-1.9 -3 L0 -2.2 L1.9 -3 L0.9 -3.9 L0 -3.1 L-0.9 -3.9Z" fill="#43a047"/>'
+
+// A tomato thrown at `begin` from `from`, spinning in an arc onto `to`.
+const tomatoFlight = (from: { x: number; y: number }, to: { x: number; y: number }, begin: number) => {
+  const apexY = Math.max(3, Math.min(from.y, to.y) - 14)
+  const path = `M${from.x.toFixed(1)} ${from.y.toFixed(1)} Q${((from.x + to.x) / 2).toFixed(1)} ${apexY.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`
+  const b = at2(begin)
+
+  return (
+    `<g opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="${at2(FLIGHT)}"/>` +
+    `<animateMotion path="${path}" begin="${b}" dur="${at2(FLIGHT)}" fill="freeze"/>` +
+    `<g><animateTransform attributeName="transform" type="rotate" values="0;540" begin="${b}" dur="${at2(FLIGHT)}" fill="freeze"/>${TOMATO}</g></g>`
+  )
+}
+
+// A tomato squashed on a face at `at`, `size` its scale, from `begin`: it
+// spreads in a blink, sprays drops, drips down and fades.
+const splat = (at: { x: number; y: number }, size: number, begin: number) => {
+  const b = at2(begin)
+  const drops = [
+    [-8, -5],
+    [7, -6],
+    [9, 1],
+    [-9, 2],
+    [0, -9],
+  ]
+    .map(
+      ([dx, dy]) =>
+        `<circle r="0.9" fill="#e53935" opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="0.3s"/><animateTransform attributeName="transform" type="translate" values="0,0;${dx},${dy}" begin="${b}" dur="0.3s" fill="freeze"/></circle>`,
+    )
+    .join('')
+  const drips = [
+    [-2.5, 7],
+    [2, 10],
+  ]
+    .map(
+      ([x, fall]) =>
+        `<ellipse cx="${x}" cy="2.5" rx="0.9" ry="1.5" fill="#c62828"><animateTransform attributeName="transform" type="translate" values="0,0;0,${fall}" begin="${at2(begin + 0.15)}" dur="${at2(SPLAT - 0.2)}" fill="freeze"/></ellipse>`,
+    )
+    .join('')
+  const blob =
+    `<g><animateTransform attributeName="transform" type="scale" values="0.2;1.25;1" keyTimes="0;0.5;1" begin="${b}" dur="0.16s" fill="freeze"/>` +
+    '<path d="M-5 -1 Q-6.5 -5.5 -2 -4.2 Q0 -7.5 2.2 -4.3 Q6.5 -5.5 5.2 -1 Q8.5 1 4.3 2.2 Q3.4 5.6 0 3.4 Q-3.4 5.6 -4.3 2.2 Q-8.5 1 -5 -1Z" fill="#d32f2f"/>' +
+    '<path d="M-3 -1 Q-3 -3.5 0 -2.6 Q3 -3.5 3 -0.8 Q3 1.8 0 1.4 Q-3 1.8 -3 -1Z" fill="#ef5350"/>' +
+    '<g fill="#fff59d"><ellipse cx="-1.4" cy="-1.2" rx="0.5" ry="0.8"/><ellipse cx="1.3" cy="-0.6" rx="0.5" ry="0.8"/><ellipse cx="0" cy="0.8" rx="0.5" ry="0.8"/></g>' +
+    '<path d="M-1 -4.6 L0 -3.8 L1.3 -4.8" stroke="#2e7d32" stroke-width="0.8" fill="none"/></g>'
+
+  return (
+    `<g transform="translate(${at.x.toFixed(1)},${at.y.toFixed(1)}) scale(${size})" opacity="0"><set attributeName="opacity" to="1" begin="${b}" dur="${at2(SPLAT)}"/>` +
+    `<g><animate attributeName="opacity" values="1;1;0" keyTimes="0;0.7;1" begin="${b}" dur="${at2(SPLAT)}"/>${drips}${blob}${drops}</g></g>`
+  )
+}
+
+// Shut eyes while the tomato drips: `transform` places the actor's body.
+const squint = (transform: string, begin: number) =>
+  `<g transform="${transform}" opacity="0"><set attributeName="opacity" to="1" begin="${at2(begin)}" dur="${at2(SPLAT * 0.8)}"/><rect x="11" y="11" width="18" height="10" fill="${O}"/>${OUCH_EYES}</g>`
+
+// Where a tomato lands on the main mascot's face, and on a mini's at `x`.
+const MAIN_FACE = { x: 22, y: 23 }
+const miniFace = (x: number) => ({ x: x + DESK + 12, y: 30 })
+
+// The person's tomato, thrown from their fist at `from` into the main
+// mascot's face.
+const personTomato = (from: { x: number; y: number }) =>
+  `<circle cx="${from.x.toFixed(1)}" cy="${from.y.toFixed(1)}" r="2.2" fill="#5b3a1e" opacity="0"><set attributeName="opacity" to="1" begin="0s" dur="${at2(FLIGHT)}"/></circle>` +
+  tomatoFlight(from, MAIN_FACE, 0) +
+  squint('translate(2,8)', splatAt(0)) +
+  splat(MAIN_FACE, 1.4, splatAt(0))
+
+// The main mascot throws a tomato from its hand at each busy mini (`busy`:
+// where each one's place starts), left to right.
+const crewTomatoes = (busy: readonly number[]) =>
+  busy
+    .map(
+      (x, k) =>
+        tomatoFlight({ x: 39, y: 25 }, miniFace(x), tossAt(k)) +
+        squint(`translate(${x + DESK},20.8) scale(0.6)`, splatAt(k)) +
+        splat(miniFace(x), 0.8, splatAt(k)),
+    )
+    .join('')
+
 // The actor's own drawing, its body hopping from a shot at its feet at
 // `begin` seconds into the drawing (past, if negative), its eyes squeezed
 // shut while it is up. Its target and the rest stay put. `isMini`: a mini's
@@ -1116,7 +1213,7 @@ export const stageFx = (
         isStreak: boolean
         elapsed: number
         from?: { x: number; y: number }
-        weapon?: 'lasso' | 'gun'
+        weapon?: Weapon
         hitX?: number
       }
     | undefined,
@@ -1128,6 +1225,16 @@ export const stageFx = (
   // Loaded again part way through, the lash goes on from where it was rather
   // than cracking a second time.
   const at = (markup: string) => shiftTime(markup, lash.elapsed)
+  if (lash.weapon === 'tomato') {
+    if (lash.kind === 'self') {
+      const from = lash.from ?? { x: stage.mainWidth - 6, y: 12 }
+
+      return svg(width, `${home}${at(`<g id="lash${lash.n}">${personTomato(from)}</g>`)}`)
+    }
+    const busy = stage.minis.flatMap((mini, i) => (mini.isBusy ? [stage.mainWidth + i * MINI_WIDTH] : []))
+
+    return svg(width, `${home}${at(`<g id="lash${lash.n}">${crewTomatoes(busy)}</g>`)}`)
+  }
   if (lash.weapon === 'gun') {
     if (lash.kind === 'self') {
       const from = lash.from ?? { x: stage.mainWidth - 8, y: 28 }
@@ -1173,8 +1280,9 @@ const BIG = [' ▐▛███▜▌', '▝▜█████▛▘', '  ▘▘ 
 const SMALL = ['▐▛▜▌', ' ▘▝'] as const
 
 // `shoot`: firing the revolver at the minis; `hop`: jumping from a shot at
-// the feet.
-export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch' | 'shoot' | 'hop'
+// the feet; `toss`: throwing tomatoes at the minis; `splat`: a tomato in
+// the face.
+export type TermPose = 'work' | 'wait' | 'salute' | 'whip' | 'ouch' | 'shoot' | 'hop' | 'toss' | 'splat'
 
 export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => {
   const beside: Record<TermPose, [string, string]> = {
@@ -1185,6 +1293,8 @@ export const termMain = (pose: TermPose, job: Job, isOdd: boolean): string[] => 
     ouch: isOdd ? [` 💢${job.emoji}`, `   ${job.prop}`] : ['', `💥${job.emoji}${job.prop}`],
     shoot: isOdd ? ['', ' ⌐╦╦═─ ⁍'] : ['', ' ⌐╦╦═─💥'],
     hop: isOdd ? [' 💢', ''] : ['', ''],
+    toss: isOdd ? ['', ' ～～🍅'] : [' 🍅', ''],
+    splat: isOdd ? [' 🍅💦', ''] : ['💦', '  🍅'],
   }
   const feet =
     pose === 'wait' && isOdd ? '  ▘▘ ▝▘' : pose === 'hop' ? (isOdd ? '   💥' : '  ▘▘💥▝▝') : BIG[2]
@@ -1199,6 +1309,11 @@ export const termMini = (pose: TermPose, job: Job, isOdd: boolean): string[] => 
     return isOdd
       ? [`${SMALL[0]}${job.emoji}`, `${SMALL[1]}  ${job.prop}`, ' 💥']
       : ['', `${SMALL[0]}${job.emoji}${job.prop}`, `${SMALL[1]}💥`]
+  }
+  if (pose === 'splat') {
+    return isOdd
+      ? [`🍅${SMALL[0]}${job.emoji}`, `  ${SMALL[1]}💦${job.prop}`, '']
+      : ['', `💦${SMALL[0]}${job.emoji}${job.prop}`, `  ${SMALL[1]}`]
   }
   if (pose === 'ouch') {
     return isOdd

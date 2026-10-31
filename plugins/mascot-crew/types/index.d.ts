@@ -34,7 +34,7 @@ export type Whip = 'none' | 'minis' | 'self'
 // `weapon`: what punished them, the lasso when not set (a click from before
 // there was a choice). With the revolver: `hitX`, where the person's shot
 // lands under the main mascot's feet; `shots`, how many minis the main
-// mascot fires at.
+// mascot fires at (or, with a tomato, throws one at).
 export type Lash = {
   n: number
   kind: 'minis' | 'self'
@@ -48,7 +48,10 @@ export type Lash = {
 }
 
 // The punishments a click picks from.
-export type Weapon = 'lasso' | 'gun'
+export type Weapon = 'lasso' | 'gun' | 'tomato'
+
+// The language the mod speaks, picked with the band's gear.
+export type Lang = 'en' | 'uk'
 
 // What is open over a mini: its right-click menu, or its details card.
 export type Popup = { id: string; kind: 'menu' | 'details' } | null
@@ -69,6 +72,6 @@ export type Scene = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null }
+    'mascot-crew': { scene: Scene; tick: number; whip: Whip; lash: Lash; popup: Popup; band: number; weapons: Weapon[]; armed: Weapon | null; lang: Lang; isGearOpen: boolean }
   }
 }
